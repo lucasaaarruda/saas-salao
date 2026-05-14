@@ -1,0 +1,189 @@
+@import '@fontsource/geist/300.css';
+@import '@fontsource/geist/400.css';
+@import '@fontsource/geist/500.css';
+@import '@fontsource/geist/600.css';
+@import '@fontsource/geist/700.css';
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* Superfícies */
+    --background:         0 0% 4%;
+    --foreground:         0 0% 93%;
+    --card:               0 0% 7%;
+    --card-foreground:    0 0% 93%;
+    --popover:            0 0% 7%;
+    --popover-foreground: 0 0% 93%;
+
+    /* Accent — indigo */
+    --primary:            239 84% 67%;
+    --primary-foreground: 0 0% 100%;
+
+    /* Secundário / muted */
+    --secondary:          0 0% 10%;
+    --secondary-foreground: 0 0% 93%;
+    --muted:              0 0% 10%;
+    --muted-foreground:   240 5% 65%;
+
+    /* Accent visual (hover sutil) */
+    --accent:             0 0% 11%;
+    --accent-foreground:  0 0% 93%;
+
+    /* Semânticas */
+    --destructive:        0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+
+    /* Bordas e inputs */
+    --border:             0 0% 16%;
+    --input:              0 0% 12%;
+    --ring:               239 84% 67%;
+
+    /* Radius */
+    --radius: 0.5rem;
+
+    /* Tokens extras */
+    --surface-raised:     0 0% 10%;
+    --border-subtle:      0 0% 12%;
+
+    /* Sidebar — mesclado com o card */
+    --sidebar:            0 0% 5%;
+    --sidebar-foreground: 0 0% 70%;
+    --sidebar-border:     0 0% 12%;
+    --sidebar-accent:     0 0% 10%;
+    --sidebar-accent-foreground: 0 0% 93%;
+  }
+
+  .light {
+    --background:         0 0% 98%;
+    --foreground:         0 0% 4%;
+    --card:               0 0% 100%;
+    --card-foreground:    0 0% 4%;
+    --popover:            0 0% 100%;
+    --popover-foreground: 0 0% 4%;
+    --primary:            239 84% 67%;
+    --primary-foreground: 0 0% 100%;
+    --secondary:          0 0% 96%;
+    --secondary-foreground: 0 0% 4%;
+    --muted:              0 0% 96%;
+    --muted-foreground:   0 0% 45%;
+    --accent:             0 0% 96%;
+    --accent-foreground:  0 0% 4%;
+    --destructive:        0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+    --border:             0 0% 89%;
+    --input:              0 0% 89%;
+    --ring:               239 84% 67%;
+    --surface-raised:     0 0% 94%;
+    --border-subtle:      0 0% 92%;
+    --sidebar:            0 0% 96%;
+    --sidebar-foreground: 0 0% 40%;
+    --sidebar-border:     0 0% 89%;
+    --sidebar-accent:     0 0% 92%;
+    --sidebar-accent-foreground: 0 0% 4%;
+  }
+
+  * {
+    border-color: hsl(var(--border));
+    box-sizing: border-box;
+  }
+
+  html {
+    font-family: 'Geist', system-ui, -apple-system, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+  }
+
+  body {
+    background-color: hsl(var(--background));
+    color: hsl(var(--foreground));
+    font-size: 14px;
+    line-height: 1.5;
+    letter-spacing: -0.01em;
+  }
+
+  /* Scrollbar discreta */
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: hsl(var(--border)); border-radius: 3px; }
+  ::-webkit-scrollbar-thumb:hover { background: hsl(var(--muted-foreground)); }
+
+  /* Focus ring consistente */
+  :focus-visible {
+    outline: 2px solid hsl(var(--ring));
+    outline-offset: 2px;
+    border-radius: var(--radius);
+  }
+
+  /* Seleção de texto */
+  ::selection {
+    background: hsl(239 84% 67% / 0.25);
+    color: hsl(var(--foreground));
+  }
+}
+
+@layer utilities {
+  /* Superfície levantada */
+  .surface-raised { background-color: hsl(var(--surface-raised)); }
+
+  /* Shimmer para skeleton */
+  @keyframes shimmer {
+    0%   { background-position: -200% 0; }
+    100% { background-position:  200% 0; }
+  }
+  .shimmer {
+    background: linear-gradient(
+      90deg,
+      hsl(var(--muted)) 25%,
+      hsl(var(--surface-raised)) 50%,
+      hsl(var(--muted)) 75%
+    );
+    background-size: 200% 100%;
+    animation: shimmer 1.5s ease-in-out infinite;
+  }
+
+  /* Count-up */
+  @keyframes countUp {
+    from { opacity: 0; transform: translateY(4px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  .count-up { animation: countUp 400ms ease forwards; }
+
+  /* Entrada de página */
+  @keyframes fadeInUp {
+    from { opacity: 0; transform: translateY(8px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  .fade-in-up              { animation: fadeInUp 250ms ease forwards; }
+  .fade-in-up-delay-1      { animation: fadeInUp 250ms ease 50ms  forwards; opacity: 0; }
+  .fade-in-up-delay-2      { animation: fadeInUp 250ms ease 100ms forwards; opacity: 0; }
+  .fade-in-up-delay-3      { animation: fadeInUp 250ms ease 150ms forwards; opacity: 0; }
+  .fade-in-up-delay-4      { animation: fadeInUp 250ms ease 200ms forwards; opacity: 0; }
+
+  /* Feedback tátil mobile */
+  .tap-scale {
+    transition: transform 75ms ease, opacity 75ms ease;
+  }
+  .tap-scale:active {
+    transform: scale(0.97);
+    opacity: 0.9;
+  }
+
+  /* prefers-reduced-motion */
+  @media (prefers-reduced-motion: reduce) {
+    .fade-in-up,
+    .fade-in-up-delay-1,
+    .fade-in-up-delay-2,
+    .fade-in-up-delay-3,
+    .fade-in-up-delay-4,
+    .count-up,
+    .shimmer {
+      animation: none;
+      opacity: 1;
+      transform: none;
+    }
+  }
+}

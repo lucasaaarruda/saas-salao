@@ -1,0 +1,45 @@
+# Framework
+fastapi==0.115.0
+uvicorn[standard]==0.30.6
+
+# Banco de dados
+sqlalchemy[asyncio]==2.0.35
+asyncpg==0.29.0
+alembic==1.13.3
+
+# Validação e configuração
+pydantic==2.9.2
+pydantic-settings==2.5.2
+pydantic[email]==2.9.2
+python-multipart==0.0.12
+
+# Autenticação
+python-jose[cryptography]==3.3.0
+passlib[bcrypt]==1.7.4
+bcrypt==4.2.0
+
+# Email
+fastapi-mail==1.4.1
+
+# Cache e filas
+redis==5.1.1
+celery==5.4.0
+flower==2.0.1
+
+# Upload e storage
+python-magic==0.4.27
+boto3==1.35.0
+Pillow==10.4.0
+
+# Utilitários
+python-dateutil==2.9.0
+pytz==2024.2
+
+# Rate limiting
+slowapi==0.1.9
+
+# Testes
+pytest==8.3.3
+pytest-asyncio==0.24.0
+httpx==0.27.2
+factory-boy==3.3.1
