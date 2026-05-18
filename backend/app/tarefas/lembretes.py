@@ -5,7 +5,7 @@ Fluxo de lembretes:
   1. Beat chama verificar_lembretes_pendentes() a cada 15 min
   2. A tarefa busca AppointmentReminder com status="pending" e scheduled_for <= agora + 1min
   3. Para cada lembrete encontrado, enfileira enviar_lembrete.delay(reminder_id)
-  4. enviar_lembrete envia o email/SMS e marca o lembrete como sent ou failed
+  4. enviar_lembrete envia a mensagem WhatsApp e marca o lembrete como sent ou failed
 """
 
 import asyncio
@@ -21,10 +21,55 @@ logger = logging.getLogger(__name__)
 
 
 def _get_session():
-    """Cria uma AsyncSession síncrona para uso dentro de tarefas Celery."""
+    """Cria uma AsyncSession para uso dentro de tarefas Celery."""
     from app.core.banco import SessionLocal
     return SessionLocal()
 
+
+# ---------------------------------------------------------------------------
+# Mensagens de lembrete
+# ---------------------------------------------------------------------------
+
+def _msg_lembrete_24h(
+    client_name: str,
+    service_name: str,
+    professional_name: str,
+    data: str,
+    horario: str,
+    salon_name: str,
+) -> str:
+    return (
+        f"⏰ *Lembrete: você tem agendamento amanhã!*\n\n"
+        f"Olá, {client_name}!\n\n"
+        f"📋 *Serviço:* {service_name}\n"
+        f"👤 *Profissional:* {professional_name}\n"
+        f"📅 *Data:* {data}\n"
+        f"🕐 *Horário:* {horario}\n\n"
+        f"Te esperamos! 😊\n"
+        f"_{salon_name}_"
+    )
+
+
+def _msg_lembrete_1h(
+    client_name: str,
+    service_name: str,
+    professional_name: str,
+    horario: str,
+    salon_name: str,
+) -> str:
+    return (
+        f"⏰ *Seu agendamento começa em 1 hora!*\n\n"
+        f"Olá, {client_name}!\n\n"
+        f"📋 *{service_name}* com {professional_name}\n"
+        f"🕐 *Horário:* {horario}\n\n"
+        f"Até daqui a pouco! ✨\n"
+        f"_{salon_name}_"
+    )
+
+
+# ---------------------------------------------------------------------------
+# Lógica assíncrona
+# ---------------------------------------------------------------------------
 
 async def _buscar_lembretes_pendentes():
     from app.modulos.agendamentos.model import Appointment, AppointmentReminder
@@ -44,8 +89,12 @@ async def _buscar_lembretes_pendentes():
 
 
 async def _enviar_lembrete_async(reminder_id: UUID):
+    from app.infra.whatsapp import enviar_mensagem
     from app.modulos.agendamentos.model import Appointment, AppointmentReminder
     from app.modulos.clientes.model import Client
+    from app.modulos.profissionais.model import Professional
+    from app.modulos.salao.model import Salon
+    from app.modulos.servicos.model import Service
 
     async with _get_session() as db:
         lembrete = await db.scalar(
@@ -60,12 +109,38 @@ async def _enviar_lembrete_async(reminder_id: UUID):
         if not agendamento:
             return
 
-        cliente = await db.scalar(
-            select(Client).where(Client.id == agendamento.client_id)
+        cliente = await db.scalar(select(Client).where(Client.id == agendamento.client_id))
+        servico = await db.scalar(select(Service).where(Service.id == agendamento.service_id))
+        profissional = await db.scalar(
+            select(Professional).where(Professional.id == agendamento.professional_id)
         )
+        salao = await db.scalar(select(Salon).where(Salon.id == agendamento.salon_id))
+
+        if not cliente or not cliente.phone:
+            lembrete.status = "failed"
+            lembrete.error_message = "Cliente sem telefone cadastrado"
+            await db.commit()
+            return
+
+        data_fmt = agendamento.scheduled_date.strftime("%d/%m/%Y")
+        horario_fmt = agendamento.start_time.strftime("%H:%M")
+        nome_servico = servico.name if servico else "Serviço"
+        nome_profissional = profissional.name if profissional else "Profissional"
+        nome_salao = salao.name if salao else "Salão"
+
+        if lembrete.type == "24h":
+            mensagem = _msg_lembrete_24h(
+                cliente.name, nome_servico, nome_profissional,
+                data_fmt, horario_fmt, nome_salao,
+            )
+        else:
+            mensagem = _msg_lembrete_1h(
+                cliente.name, nome_servico, nome_profissional,
+                horario_fmt, nome_salao,
+            )
 
         try:
-            await _tentar_enviar_email(lembrete, agendamento, cliente)
+            await enviar_mensagem(cliente.phone, mensagem)
             lembrete.status = "sent"
             lembrete.sent_at = datetime.now(timezone.utc)
         except Exception as exc:
@@ -74,43 +149,6 @@ async def _enviar_lembrete_async(reminder_id: UUID):
             lembrete.error_message = str(exc)[:500]
 
         await db.commit()
-
-
-async def _tentar_enviar_email(lembrete, agendamento, cliente):
-    from fastapi_mail import ConnectionConfig, FastMail, MessageSchema, MessageType
-
-    from app.core.config import settings
-
-    if not settings.SMTP_USER or not cliente or not cliente.email:
-        return
-
-    tipo = "24 horas" if lembrete.type == "24h" else "1 hora"
-    conf = ConnectionConfig(
-        MAIL_USERNAME=settings.SMTP_USER,
-        MAIL_PASSWORD=settings.SMTP_PASSWORD,
-        MAIL_FROM=settings.EMAILS_FROM_EMAIL,
-        MAIL_PORT=settings.SMTP_PORT,
-        MAIL_SERVER=settings.SMTP_HOST,
-        MAIL_FROM_NAME=settings.EMAILS_FROM_NAME,
-        MAIL_STARTTLS=True,
-        MAIL_SSL_TLS=False,
-        USE_CREDENTIALS=bool(settings.SMTP_USER),
-        VALIDATE_CERTS=True,
-    )
-    mensagem = MessageSchema(
-        subject=f"Lembrete de agendamento — {tipo}",
-        recipients=[cliente.email],
-        body=(
-            f"Olá, {cliente.name}!\n\n"
-            f"Lembramos que você tem um agendamento em {tipo}:\n"
-            f"Data: {agendamento.scheduled_date.strftime('%d/%m/%Y')}\n"
-            f"Horário: {agendamento.start_time.strftime('%H:%M')}\n\n"
-            f"Até breve!"
-        ),
-        subtype=MessageType.plain,
-    )
-    fm = FastMail(conf)
-    await fm.send_message(mensagem)
 
 
 async def _marcar_no_shows_async():
@@ -148,7 +186,7 @@ def verificar_lembretes_pendentes(self):
 
 @celery.task(name="app.tarefas.lembretes.enviar_lembrete", bind=True, max_retries=3)
 def enviar_lembrete(self, reminder_id: str):
-    """Envia o lembrete (email/SMS) e atualiza o status no banco."""
+    """Envia o lembrete via WhatsApp e atualiza o status no banco."""
     try:
         asyncio.run(_enviar_lembrete_async(UUID(reminder_id)))
     except Exception as exc:

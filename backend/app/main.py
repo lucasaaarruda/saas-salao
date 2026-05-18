@@ -95,7 +95,7 @@ app.add_middleware(
 if settings.AMBIENTE == "production":
     app.add_middleware(
         TrustedHostMiddleware,
-        allowed_hosts=["seudominio.com.br", "www.seudominio.com.br"],
+        allowed_hosts=settings.ALLOWED_HOSTS,
     )
 
 

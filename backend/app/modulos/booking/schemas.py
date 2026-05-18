@@ -103,10 +103,21 @@ class AgendarInput(BaseModel):
     notes: str | None = None
 
 
+class CancelarInput(BaseModel):
+    motivo: str | None = None
+
+
+class ReagendarInput(BaseModel):
+    scheduled_date: date
+    start_time: time
+
+
 class AgendamentoClienteOut(BaseModel):
     id: uuid.UUID
     service_id: uuid.UUID
+    service_name: str = ""
     professional_id: uuid.UUID
+    professional_name: str = ""
     scheduled_date: date
     start_time: time
     end_time: time

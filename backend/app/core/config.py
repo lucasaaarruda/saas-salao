@@ -28,17 +28,16 @@ class Configuracoes(BaseSettings):
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
     REFRESH_TOKEN_EXPIRE_DAYS: int = 7
 
-    # Email (SMTP)
-    SMTP_HOST: str = "smtp.gmail.com"
-    SMTP_PORT: int = 587
-    SMTP_USER: str = ""
-    SMTP_PASSWORD: str = ""
-    EMAILS_FROM_NAME: str = "Salão App"
-    EMAILS_FROM_EMAIL: str = "noreply@salaoapp.com.br"
+    # WhatsApp — Evolution API
+    EVOLUTION_API_URL: str = ""
+    EVOLUTION_API_KEY: str = ""
+    EVOLUTION_INSTANCE: str = ""
+    FRONTEND_URL: str = "http://localhost:5173"
 
     # Aplicação
     AMBIENTE: str = "development"
     BACKEND_CORS_ORIGINS: List[str] = ["http://localhost:5173"]
+    ALLOWED_HOSTS: List[str] = ["localhost", "127.0.0.1"]
     PRIMEIRO_ADMIN_EMAIL: str = "admin@salaoapp.com.br"
     PRIMEIRO_ADMIN_SENHA: str = "troque-em-producao"
 
@@ -53,9 +52,9 @@ class Configuracoes(BaseSettings):
     VITE_APP_NOME: str = "Salão App"
     VITE_APP_VERSAO: str = "1.0.0"
 
-    @field_validator("BACKEND_CORS_ORIGINS", mode="before")
+    @field_validator("BACKEND_CORS_ORIGINS", "ALLOWED_HOSTS", mode="before")
     @classmethod
-    def montar_cors(cls, v: str | List[str]) -> List[str]:
+    def montar_lista(cls, v: str | List[str]) -> List[str]:
         if isinstance(v, str):
             import json
             return json.loads(v)

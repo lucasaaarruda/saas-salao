@@ -15,6 +15,7 @@ from app.modulos.agendamentos.schemas import (
 )
 from app.modulos.clientes.model import Client
 from app.modulos.profissionais.model import Professional
+from app.modulos.salao.model import Salon
 from app.modulos.servicos.model import Service
 
 
@@ -132,6 +133,28 @@ async def criar_agendamento(
     from app.tarefas.lembretes import agendar_lembretes
     await agendar_lembretes(agendamento.id, agendamento.scheduled_date, agendamento.start_time, db)
 
+    try:
+        from app.core.config import settings
+        from app.tarefas.notificacoes import notificar_novo_agendamento
+        salao = await db.scalar(select(Salon).where(Salon.id == salon_id))
+        if salao and cliente and cliente.phone:
+            booking_link = f"{settings.FRONTEND_URL}/booking/{salao.slug}/meus-agendamentos"
+            notificar_novo_agendamento.delay(
+                client_phone=cliente.phone,
+                client_name=cliente.name,
+                salon_phone=salao.phone,
+                salon_name=salao.name,
+                service_name=servico.name,
+                professional_name=profissional.name,
+                data=agendamento.scheduled_date.strftime("%d/%m/%Y"),
+                horario=agendamento.start_time.strftime("%H:%M"),
+                valor=f"R$ {agendamento.final_price:.2f}".replace(".", ","),
+                booking_link=booking_link,
+                notificar_salao=False,  # staff criou, não precisa avisar o salão
+            )
+    except Exception:
+        pass
+
     return AgendamentoOut.model_validate(agendamento)
 
 
@@ -225,6 +248,17 @@ async def atualizar_status(
     if dados.status == "cancelled":
         agendamento.cancelled_at = datetime.now(timezone.utc)
         agendamento.cancellation_reason = dados.cancellation_reason
+
+        # Cancela lembretes WhatsApp pendentes para não avisar de agendamento cancelado
+        from app.modulos.agendamentos.model import AppointmentReminder
+        lembretes_pendentes = await db.execute(
+            select(AppointmentReminder).where(
+                AppointmentReminder.appointment_id == agendamento.id,
+                AppointmentReminder.status == "pending",
+            )
+        )
+        for lembrete in lembretes_pendentes.scalars().all():
+            lembrete.status = "cancelled"
 
     if dados.status == "completed":
         agendamento.payment_status = "paid"

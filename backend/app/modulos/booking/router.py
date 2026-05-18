@@ -11,6 +11,7 @@ from app.modulos.booking import service
 from app.modulos.booking.schemas import (
     AgendarInput,
     AgendamentoClienteOut,
+    CancelarInput,
     ClienteLoginInput,
     ClienteRefreshInput,
     ClienteRegistroInput,
@@ -18,6 +19,7 @@ from app.modulos.booking.schemas import (
     EsqueciSenhaInput,
     NovoAccessTokenClienteOut,
     ProfissionalPublicoOut,
+    ReagendarInput,
     RedefinirSenhaInput,
     SalaoPublicoOut,
     ServicoPublicoOut,
@@ -152,3 +154,35 @@ async def meus_agendamentos(
     db: AsyncSession = Depends(get_db),
 ):
     return await service.meus_agendamentos(cliente_atual, db, status)
+
+
+@router.patch(
+    "/{slug}/meus-agendamentos/{appointment_id}/cancelar",
+    response_model=AgendamentoClienteOut,
+)
+async def cancelar_agendamento(
+    slug: str,
+    appointment_id: uuid.UUID,
+    dados: CancelarInput,
+    cliente_atual: Client = Depends(get_cliente_atual),
+    db: AsyncSession = Depends(get_db),
+):
+    agendamento = await service.cancelar_agendamento_cliente(cliente_atual, appointment_id, dados, db)
+    await db.commit()
+    return agendamento
+
+
+@router.patch(
+    "/{slug}/meus-agendamentos/{appointment_id}/reagendar",
+    response_model=AgendamentoClienteOut,
+)
+async def reagendar_agendamento(
+    slug: str,
+    appointment_id: uuid.UUID,
+    dados: ReagendarInput,
+    cliente_atual: Client = Depends(get_cliente_atual),
+    db: AsyncSession = Depends(get_db),
+):
+    agendamento = await service.reagendar_agendamento_cliente(cliente_atual, appointment_id, dados, db)
+    await db.commit()
+    return agendamento

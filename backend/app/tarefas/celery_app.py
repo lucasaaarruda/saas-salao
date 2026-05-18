@@ -7,7 +7,7 @@ celery = Celery(
     "salao",
     broker=settings.REDIS_URL,
     backend=settings.REDIS_URL,
-    include=["app.tarefas.lembretes"],
+    include=["app.tarefas.lembretes", "app.tarefas.notificacoes"],
 )
 
 celery.conf.update(

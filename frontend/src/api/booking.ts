@@ -127,3 +127,27 @@ export async function getMeusAgendamentos(
   })
   return data
 }
+
+export async function cancelarAgendamento(
+  slug: string,
+  appointmentId: string,
+  motivo?: string
+): Promise<AgendamentoCliente> {
+  const { data } = await bookingApi.patch<AgendamentoCliente>(
+    `/booking/${slug}/meus-agendamentos/${appointmentId}/cancelar`,
+    { motivo: motivo ?? null }
+  )
+  return data
+}
+
+export async function reagendarAgendamento(
+  slug: string,
+  appointmentId: string,
+  dados: { scheduled_date: string; start_time: string }
+): Promise<AgendamentoCliente> {
+  const { data } = await bookingApi.patch<AgendamentoCliente>(
+    `/booking/${slug}/meus-agendamentos/${appointmentId}/reagendar`,
+    dados
+  )
+  return data
+}

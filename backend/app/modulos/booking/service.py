@@ -23,16 +23,18 @@ from app.core.seguranca import (
 from app.modulos.booking.schemas import (
     AgendarInput,
     AgendamentoClienteOut,
+    CancelarInput,
     ClienteLoginInput,
     ClientePublicoOut,
     ClienteRegistroInput,
     ClienteTokenOut,
     NovoAccessTokenClienteOut,
     ProfissionalPublicoOut,
+    ReagendarInput,
     SalaoPublicoOut,
     ServicoPublicoOut,
 )
-from app.modulos.agendamentos.model import Appointment
+from app.modulos.agendamentos.model import Appointment, AppointmentReminder
 from app.modulos.agendamentos.service import _calcular_fim, _verificar_conflito
 from app.modulos.clientes.model import Client
 from app.modulos.profissionais.model import Professional
@@ -43,6 +45,30 @@ from app.modulos.servicos.model import Service
 # ---------------------------------------------------------------------------
 # Utilitários internos
 # ---------------------------------------------------------------------------
+
+def _to_cliente_out(
+    agendamento: Appointment,
+    servico: Service | None = None,
+    profissional: Professional | None = None,
+) -> AgendamentoClienteOut:
+    """Monta AgendamentoClienteOut a partir do ORM, incluindo nomes de serviço e profissional."""
+    return AgendamentoClienteOut(
+        id=agendamento.id,
+        service_id=agendamento.service_id,
+        service_name=servico.name if servico else "",
+        professional_id=agendamento.professional_id,
+        professional_name=profissional.name if profissional else "",
+        scheduled_date=agendamento.scheduled_date,
+        start_time=agendamento.start_time,
+        end_time=agendamento.end_time,
+        status=agendamento.status,
+        final_price=agendamento.final_price,
+        notes=agendamento.notes,
+        created_at=agendamento.created_at,
+        cancelled_at=agendamento.cancelled_at,
+        cancellation_reason=agendamento.cancellation_reason,
+    )
+
 
 async def _buscar_salao_por_slug(slug: str, db: AsyncSession) -> Salon:
     salao = await db.scalar(select(Salon).where(Salon.slug == slug))
@@ -202,38 +228,20 @@ async def esqueci_senha_cliente(slug: str, email: str, db: AsyncSession) -> None
     token = str(uuid.uuid4())
     await salvar_token_recuperacao_cliente(str(cliente.id), token)
 
-    try:
-        from fastapi_mail import ConnectionConfig, FastMail, MessageSchema, MessageType
-        from app.core.config import settings
-
-        conf = ConnectionConfig(
-            MAIL_USERNAME=settings.SMTP_USER,
-            MAIL_PASSWORD=settings.SMTP_PASSWORD,
-            MAIL_FROM=settings.EMAILS_FROM_EMAIL,
-            MAIL_PORT=settings.SMTP_PORT,
-            MAIL_SERVER=settings.SMTP_HOST,
-            MAIL_FROM_NAME=settings.EMAILS_FROM_NAME,
-            MAIL_STARTTLS=True,
-            MAIL_SSL_TLS=False,
-            USE_CREDENTIALS=bool(settings.SMTP_USER),
-            VALIDATE_CERTS=True,
-        )
-        mensagem = MessageSchema(
-            subject=f"Recuperação de senha — {salao.name}",
-            recipients=[email],
-            body=(
+    if cliente.phone:
+        try:
+            from app.infra.whatsapp import enviar_mensagem
+            mensagem = (
+                f"🔐 *Recuperação de senha — {salao.name}*\n\n"
                 f"Olá, {cliente.name}!\n\n"
-                f"Use o token abaixo para redefinir sua senha:\n\n"
-                f"{token}\n\n"
-                f"Este token expira em 1 hora.\n\n"
-                f"Se você não solicitou isso, ignore este email."
-            ),
-            subtype=MessageType.plain,
-        )
-        fm = FastMail(conf)
-        await fm.send_message(mensagem)
-    except Exception:
-        pass
+                f"Use o código abaixo para redefinir sua senha:\n\n"
+                f"*{token}*\n\n"
+                f"Este código expira em 1 hora.\n"
+                f"Se não foi você, ignore esta mensagem."
+            )
+            await enviar_mensagem(cliente.phone, mensagem)
+        except Exception:
+            pass
 
 
 async def redefinir_senha_cliente(token: str, nova_senha: str, db: AsyncSession) -> None:
@@ -368,7 +376,185 @@ async def agendar_cliente(
     except Exception:
         pass
 
-    return AgendamentoClienteOut.model_validate(agendamento)
+    try:
+        from app.core.config import settings
+        from app.tarefas.notificacoes import notificar_novo_agendamento
+        booking_link = f"{settings.FRONTEND_URL}/booking/{salao.slug}/meus-agendamentos"
+        notificar_novo_agendamento.delay(
+            client_phone=cliente.phone,
+            client_name=cliente.name,
+            salon_phone=salao.phone,
+            salon_name=salao.name,
+            service_name=servico.name,
+            professional_name=profissional.name,
+            data=agendamento.scheduled_date.strftime("%d/%m/%Y"),
+            horario=agendamento.start_time.strftime("%H:%M"),
+            valor=f"R$ {agendamento.final_price:.2f}".replace(".", ","),
+            booking_link=booking_link,
+            notificar_salao=True,
+        )
+    except Exception:
+        pass
+
+    return _to_cliente_out(agendamento, servico, profissional)
+
+
+def _validar_prazo_24h(agendamento: Appointment) -> None:
+    """Lança 400 se faltam menos de 24h para o agendamento."""
+    dt = datetime.combine(agendamento.scheduled_date, agendamento.start_time, tzinfo=timezone.utc)
+    if datetime.now(timezone.utc) >= dt - timedelta(hours=24):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Operação não permitida com menos de 24h de antecedência",
+        )
+
+
+async def _buscar_agendamento_cliente(
+    cliente: Client, appointment_id: uuid.UUID, db: AsyncSession
+) -> Appointment:
+    agendamento = await db.scalar(
+        select(Appointment).where(
+            Appointment.id == appointment_id,
+            Appointment.client_id == cliente.id,
+            Appointment.salon_id == cliente.salon_id,
+        )
+    )
+    if not agendamento:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Agendamento não encontrado")
+    return agendamento
+
+
+async def cancelar_agendamento_cliente(
+    cliente: Client,
+    appointment_id: uuid.UUID,
+    dados: CancelarInput,
+    db: AsyncSession,
+) -> AgendamentoClienteOut:
+    agendamento = await _buscar_agendamento_cliente(cliente, appointment_id, db)
+
+    if agendamento.status in ("cancelled", "completed", "no_show", "in_progress"):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Agendamento não pode ser cancelado no status atual",
+        )
+
+    _validar_prazo_24h(agendamento)
+
+    agendamento.status = "cancelled"
+    agendamento.cancelled_at = datetime.now(timezone.utc)
+    agendamento.cancellation_reason = dados.motivo
+
+    # Cancela lembretes pendentes
+    res = await db.execute(
+        select(AppointmentReminder).where(
+            AppointmentReminder.appointment_id == agendamento.id,
+            AppointmentReminder.status == "pending",
+        )
+    )
+    for lembrete in res.scalars().all():
+        lembrete.status = "cancelled"
+
+    servico = await db.scalar(select(Service).where(Service.id == agendamento.service_id))
+    profissional = await db.scalar(select(Professional).where(Professional.id == agendamento.professional_id))
+    salao = await db.scalar(select(Salon).where(Salon.id == cliente.salon_id))
+
+    if salao and servico and cliente.phone:
+        try:
+            from app.tarefas.notificacoes import notificar_cancelamento
+            notificar_cancelamento.delay(
+                client_phone=cliente.phone,
+                client_name=cliente.name,
+                salon_phone=salao.phone,
+                salon_name=salao.name,
+                service_name=servico.name,
+                data=agendamento.scheduled_date.strftime("%d/%m/%Y"),
+                horario=agendamento.start_time.strftime("%H:%M"),
+            )
+        except Exception:
+            pass
+
+    return _to_cliente_out(agendamento, servico, profissional)
+
+
+async def reagendar_agendamento_cliente(
+    cliente: Client,
+    appointment_id: uuid.UUID,
+    dados: ReagendarInput,
+    db: AsyncSession,
+) -> AgendamentoClienteOut:
+    agendamento = await _buscar_agendamento_cliente(cliente, appointment_id, db)
+
+    if agendamento.status in ("cancelled", "completed", "no_show", "in_progress"):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Agendamento não pode ser reagendado no status atual",
+        )
+
+    _validar_prazo_24h(agendamento)
+
+    if dados.scheduled_date < date.today():
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Nova data não pode ser no passado",
+        )
+
+    servico = await db.scalar(select(Service).where(Service.id == agendamento.service_id))
+    if not servico:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Serviço não encontrado")
+
+    novo_fim = _calcular_fim(dados.start_time, servico.duration_minutes)
+
+    # Verifica disponibilidade no novo horário (exclui o próprio agendamento)
+    await _verificar_conflito(
+        db,
+        agendamento.professional_id,
+        dados.scheduled_date,
+        dados.start_time,
+        novo_fim,
+        excluir_id=agendamento.id,
+    )
+
+    # Cancela lembretes antigos
+    res = await db.execute(
+        select(AppointmentReminder).where(
+            AppointmentReminder.appointment_id == agendamento.id,
+            AppointmentReminder.status == "pending",
+        )
+    )
+    for lembrete in res.scalars().all():
+        lembrete.status = "cancelled"
+
+    agendamento.scheduled_date = dados.scheduled_date
+    agendamento.start_time = dados.start_time
+    agendamento.end_time = novo_fim
+
+    # Agenda novos lembretes
+    from app.tarefas.lembretes import agendar_lembretes
+    await agendar_lembretes(agendamento.id, agendamento.scheduled_date, agendamento.start_time, db)
+
+    profissional = await db.scalar(select(Professional).where(Professional.id == agendamento.professional_id))
+    salao = await db.scalar(select(Salon).where(Salon.id == cliente.salon_id))
+
+    if salao and servico and cliente.phone:
+        try:
+            from app.core.config import settings
+            from app.tarefas.notificacoes import notificar_reagendamento
+            booking_link = f"{settings.FRONTEND_URL}/booking/{salao.slug}/meus-agendamentos"
+            notificar_reagendamento.delay(
+                client_phone=cliente.phone,
+                client_name=cliente.name,
+                salon_phone=salao.phone,
+                salon_name=salao.name,
+                service_name=servico.name,
+                professional_name=profissional.name if profissional else "",
+                nova_data=agendamento.scheduled_date.strftime("%d/%m/%Y"),
+                novo_horario=agendamento.start_time.strftime("%H:%M"),
+                booking_link=booking_link,
+            )
+        except Exception:
+            pass
+
+    return _to_cliente_out(agendamento, servico, profissional)
 
 
 async def meus_agendamentos(
@@ -388,4 +574,23 @@ async def meus_agendamentos(
         query = query.where(Appointment.status == status_filtro)
 
     result = await db.execute(query)
-    return [AgendamentoClienteOut.model_validate(a) for a in result.scalars().all()]
+    appointments = result.scalars().all()
+
+    # Carregar serviços e profissionais em batch
+    service_ids = {a.service_id for a in appointments}
+    professional_ids = {a.professional_id for a in appointments}
+
+    servicos = {}
+    if service_ids:
+        res = await db.execute(select(Service).where(Service.id.in_(service_ids)))
+        servicos = {s.id: s for s in res.scalars().all()}
+
+    profissionais = {}
+    if professional_ids:
+        res = await db.execute(select(Professional).where(Professional.id.in_(professional_ids)))
+        profissionais = {p.id: p for p in res.scalars().all()}
+
+    return [
+        _to_cliente_out(a, servicos.get(a.service_id), profissionais.get(a.professional_id))
+        for a in appointments
+    ]

@@ -8,7 +8,6 @@ import {
   ArrowRight,
   Scissors,
   Smartphone,
-  Star,
   Zap,
   Sparkles,
   Shield,
@@ -47,53 +46,6 @@ const features = [
   },
 ]
 
-const plans = [
-  {
-    name: "Starter",
-    price: "R$ 49",
-    period: "/mês",
-    description: "Ideal para autônomos e pequenos salões",
-    features: [
-      "1 profissional",
-      "Agendamento online",
-      "Gestão de clientes",
-      "Controle financeiro básico",
-    ],
-    cta: "Começar grátis",
-    highlighted: false,
-  },
-  {
-    name: "Pro",
-    price: "R$ 99",
-    period: "/mês",
-    description: "Para salões em crescimento",
-    features: [
-      "Até 5 profissionais",
-      "Tudo do Starter",
-      "Relatórios avançados",
-      "Comissões automatizadas",
-      "Suporte prioritário",
-    ],
-    cta: "Começar grátis",
-    highlighted: true,
-  },
-  {
-    name: "Business",
-    price: "R$ 179",
-    period: "/mês",
-    description: "Para redes e franquias",
-    features: [
-      "Profissionais ilimitados",
-      "Tudo do Pro",
-      "Multi-unidade",
-      "API de integração",
-      "Gerente de conta dedicado",
-    ],
-    cta: "Falar com vendas",
-    highlighted: false,
-  },
-]
-
 const steps = [
   {
     number: "01",
@@ -117,11 +69,11 @@ const steps = [
   },
 ]
 
-const stats = [
-  { value: "500+", label: "Salões cadastrados" },
-  { value: "50k+", label: "Agendamentos/mês" },
-  { value: "98%", label: "Satisfação dos clientes" },
-  { value: "14 dias", label: "Teste gratuito" },
+const highlights = [
+  { value: "24/7", label: "Agendamentos online" },
+  { value: "1 link", label: "Para seus clientes agendar" },
+  { value: "0", label: "Taxas por agendamento" },
+  { value: "100%", label: "Funciona no celular" },
 ]
 
 const agendaMock = [
@@ -179,12 +131,6 @@ export default function LandingPage() {
               >
                 Como funciona
               </a>
-              <a
-                href="#pricing"
-                className="text-sm text-muted-foreground transition-colors hover:text-foreground"
-              >
-                Preços
-              </a>
             </nav>
 
             <div className="flex items-center gap-2">
@@ -198,7 +144,7 @@ export default function LandingPage() {
                 to="/register"
                 className="tap-scale inline-flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
               >
-                Começar grátis
+                Criar conta
                 <ArrowRight className="h-3.5 w-3.5" />
               </Link>
             </div>
@@ -233,7 +179,7 @@ export default function LandingPage() {
               to="/register"
               className="tap-scale inline-flex w-full items-center justify-center gap-2 rounded-xl bg-primary px-6 py-3 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/90 sm:w-auto"
             >
-              Começar gratuitamente
+              Criar conta gratuitamente
               <ArrowRight className="h-4 w-4" />
             </Link>
             <Link
@@ -245,7 +191,7 @@ export default function LandingPage() {
           </div>
 
           <p className="fade-in-up-delay-4 mt-4 text-xs text-muted-foreground">
-            Grátis por 14 dias · Sem cartão de crédito · Cancele quando quiser
+            Cadastro gratuito · Sem cartão de crédito
           </p>
         </div>
 
@@ -326,19 +272,19 @@ export default function LandingPage() {
 
           <div className="absolute -bottom-4 left-1/2 inline-flex -translate-x-1/2 items-center gap-2 rounded-full border border-border bg-card px-4 py-2 text-xs font-medium shadow-card-md">
             <div className="h-2 w-2 animate-pulse rounded-full bg-[#22c55e]" />
-            3 agendamentos sendo feitos agora
+            Agendamento online em tempo real
           </div>
         </div>
       </section>
 
-      {/* Stats */}
+      {/* Highlights */}
       <section className="border-y border-border bg-card/30 py-12">
         <div className="mx-auto max-w-4xl px-4 sm:px-6">
           <div className="grid grid-cols-2 gap-8 text-center sm:grid-cols-4">
-            {stats.map((s) => (
-              <div key={s.label}>
-                <div className="text-2xl font-bold text-foreground sm:text-3xl">{s.value}</div>
-                <div className="mt-1 text-xs text-muted-foreground">{s.label}</div>
+            {highlights.map((h) => (
+              <div key={h.label}>
+                <div className="text-2xl font-bold text-foreground sm:text-3xl">{h.value}</div>
+                <div className="mt-1 text-xs text-muted-foreground">{h.label}</div>
               </div>
             ))}
           </div>
@@ -401,63 +347,47 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* Pricing */}
-      <section id="pricing" className="px-4 py-20 sm:px-6">
-        <div className="mx-auto max-w-5xl">
-          <div className="mb-12 text-center">
-            <h2 className="text-2xl font-bold tracking-tight sm:text-3xl">Planos e preços</h2>
+      {/* Acesso */}
+      <section className="px-4 py-20 sm:px-6">
+        <div className="mx-auto max-w-2xl">
+          <div className="mb-10 text-center">
+            <h2 className="text-2xl font-bold tracking-tight sm:text-3xl">Comece agora</h2>
             <p className="mt-3 text-muted-foreground">
-              Comece grátis por 14 dias, sem cartão de crédito
+              Crie sua conta gratuitamente e comece a receber agendamentos online.
             </p>
           </div>
 
-          <div className="grid gap-4 sm:grid-cols-3">
-            {plans.map((plan) => (
-              <div
-                key={plan.name}
-                className={`relative rounded-2xl border p-6 ${
-                  plan.highlighted
-                    ? "border-primary bg-primary/5 ring-1 ring-primary"
-                    : "border-border bg-card"
-                }`}
-              >
-                {plan.highlighted && (
-                  <div className="absolute -top-3 left-1/2 inline-flex -translate-x-1/2 items-center gap-1 rounded-full bg-primary px-3 py-0.5 text-[11px] font-semibold text-primary-foreground">
-                    <Star className="h-2.5 w-2.5" />
-                    Mais popular
-                  </div>
-                )}
+          <div className="rounded-2xl border border-primary/20 bg-primary/5 p-8">
+            <div className="mx-auto mb-5 flex h-14 w-14 items-center justify-center rounded-2xl bg-primary/10 text-primary">
+              <Zap className="h-7 w-7" />
+            </div>
+            <h3 className="text-center text-xl font-bold">Acesso gratuito</h3>
+            <p className="mt-2 text-center text-sm text-muted-foreground">
+              Cadastre-se, configure seu salão e compartilhe o link de agendamento com seus clientes.
+            </p>
 
-                <div className="mb-4">
-                  <div className="text-sm font-semibold text-foreground">{plan.name}</div>
-                  <div className="mt-1 text-xs text-muted-foreground">{plan.description}</div>
-                  <div className="mt-3 flex items-baseline gap-1">
-                    <span className="text-3xl font-bold text-foreground">{plan.price}</span>
-                    <span className="text-sm text-muted-foreground">{plan.period}</span>
-                  </div>
-                </div>
+            <ul className="mt-6 space-y-2.5">
+              {[
+                "Agendamento online para seus clientes",
+                "Notificações via WhatsApp",
+                "Gestão completa de clientes e agenda",
+                "Controle financeiro e relatórios",
+                "Sem cartão de crédito",
+              ].map((f) => (
+                <li key={f} className="flex items-center gap-2.5 text-sm">
+                  <CheckCircle2 className="h-4 w-4 shrink-0 text-primary" />
+                  <span className="text-muted-foreground">{f}</span>
+                </li>
+              ))}
+            </ul>
 
-                <ul className="mb-6 space-y-2">
-                  {plan.features.map((feature) => (
-                    <li key={feature} className="flex items-start gap-2 text-sm">
-                      <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
-                      <span className="text-muted-foreground">{feature}</span>
-                    </li>
-                  ))}
-                </ul>
-
-                <Link
-                  to="/register"
-                  className={`tap-scale block w-full rounded-lg py-2.5 text-center text-sm font-medium transition-colors ${
-                    plan.highlighted
-                      ? "bg-primary text-primary-foreground hover:bg-primary/90"
-                      : "border border-border bg-card text-foreground hover:bg-accent"
-                  }`}
-                >
-                  {plan.cta}
-                </Link>
-              </div>
-            ))}
+            <Link
+              to="/register"
+              className="tap-scale mt-8 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-primary px-8 py-3 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/90"
+            >
+              Criar conta gratuitamente
+              <ArrowRight className="h-4 w-4" />
+            </Link>
           </div>
         </div>
       </section>
@@ -480,7 +410,7 @@ export default function LandingPage() {
               {
                 icon: Sparkles,
                 title: "Atualizações grátis",
-                desc: "Novos recursos sem custo adicional para todos os planos.",
+                desc: "Novos recursos sem custo adicional.",
               },
             ].map((b) => (
               <div key={b.title} className="flex flex-col items-center gap-2">
@@ -506,7 +436,7 @@ export default function LandingPage() {
               Pronto para modernizar seu salão?
             </h2>
             <p className="mt-3 text-muted-foreground">
-              Junte-se a centenas de profissionais que já usam o Belezzi para crescer.
+              Experimente gratuitamente e leve o seu salão para o próximo nível.
             </p>
             <Link
               to="/register"
