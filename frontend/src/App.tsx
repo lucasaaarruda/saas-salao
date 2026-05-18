@@ -24,6 +24,9 @@ import FinanceiroPage from "@/pages/financeiro/FinanceiroPage"
 import RelatoriosPage from "@/pages/relatorios/RelatoriosPage"
 import ConfiguracoesPage from "@/pages/configuracoes/ConfiguracoesPage"
 
+// Landing
+import LandingPage from "@/pages/landing/LandingPage"
+
 // Booking (public)
 import BookingLandingPage from "@/pages/booking/BookingLandingPage"
 import BookingAuthPage from "@/pages/booking/BookingAuthPage"
@@ -49,6 +52,9 @@ export default function App() {
       <ThemeSync />
       <BrowserRouter>
         <Routes>
+          {/* Landing page pública */}
+          <Route path="/" element={<LandingPage />} />
+
           {/* Rotas públicas (staff auth) */}
           <Route element={<AuthLayout />}>
             <Route path="/login" element={<LoginPage />} />
@@ -60,7 +66,6 @@ export default function App() {
           {/* Rotas protegidas (staff) */}
           <Route element={<PrivateRoute />}>
             <Route element={<AppLayout />}>
-              <Route path="/" element={<Navigate to="/dashboard" replace />} />
               <Route path="/dashboard" element={<DashboardPage />} />
               <Route path="/agenda" element={<AgendaPage />} />
               <Route path="/clientes" element={<ClientesPage />} />
@@ -84,7 +89,7 @@ export default function App() {
             </Route>
           </Route>
 
-          <Route path="*" element={<Navigate to="/dashboard" replace />} />
+          <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
         <Toaster />
       </BrowserRouter>
