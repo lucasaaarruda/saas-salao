@@ -107,10 +107,8 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
       >
         {!collapsed && (
           <div className="flex items-center gap-2 min-w-0">
-            <div className="flex items-center justify-center w-6 h-6 rounded-md bg-primary shrink-0">
-              <span className="font-bold text-white text-xs leading-none select-none">S</span>
-            </div>
-            <span className="font-semibold text-sm text-foreground truncate">Salão App</span>
+            <img src="/icon.png" alt="Bellezi" className="w-9 h-9 rounded-lg object-cover shrink-0" />
+            <span className="font-semibold text-xl text-foreground truncate">Bellezi</span>
           </div>
         )}
         <button
