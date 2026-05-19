@@ -71,7 +71,7 @@ export default function LoginPage() {
         )}
 
         <div className="space-y-1.5">
-          <Label htmlFor="email">Email</Label>
+          <Label htmlFor="email">Email:</Label>
           <Input
             id="email"
             type="email"
@@ -86,7 +86,7 @@ export default function LoginPage() {
 
         <div className="space-y-1.5">
           <div className="flex items-center justify-between">
-            <Label htmlFor="senha">Senha</Label>
+            <Label htmlFor="senha">Senha:</Label>
             <Link
               to="/forgot-password"
               className="text-xs text-muted-foreground hover:text-primary transition-colors"

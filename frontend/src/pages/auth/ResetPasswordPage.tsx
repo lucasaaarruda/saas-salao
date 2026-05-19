@@ -80,7 +80,7 @@ export default function ResetPasswordPage() {
         )}
 
         <div className="space-y-1.5">
-          <Label htmlFor="nova_senha">Nova senha *</Label>
+          <Label htmlFor="nova_senha">Nova senha:*</Label>
           <div className="relative">
             <Input
               id="nova_senha"
@@ -104,7 +104,7 @@ export default function ResetPasswordPage() {
         </div>
 
         <div className="space-y-1.5">
-          <Label htmlFor="confirmar_senha">Confirmar nova senha *</Label>
+          <Label htmlFor="confirmar_senha">Confirmar nova senha:*</Label>
           <div className="relative">
             <Input
               id="confirmar_senha"

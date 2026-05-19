@@ -105,6 +105,16 @@
     letter-spacing: -0.01em;
   }
 
+  /* Ícone nativo do input[type=time] invertido para tema escuro */
+  input[type="time"]::-webkit-calendar-picker-indicator {
+    filter: invert(1) opacity(0.6);
+    cursor: pointer;
+  }
+  .light input[type="time"]::-webkit-calendar-picker-indicator {
+    filter: none;
+    cursor: pointer;
+  }
+
   /* Scrollbar discreta */
   ::-webkit-scrollbar { width: 6px; height: 6px; }
   ::-webkit-scrollbar-track { background: transparent; }

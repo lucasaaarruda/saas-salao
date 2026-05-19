@@ -1,22 +1,38 @@
 import { useState } from "react"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
-import { useForm } from "react-hook-form"
+import { useForm, Controller } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { z } from "zod"
 import { Pencil, Plus, Trash2 } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import { Checkbox } from "@/components/ui/checkbox"
 import { DrawerFormulario } from "@/components/ui/drawer-formulario"
 import { EstadoVazio } from "@/components/ui/estado-vazio"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { ModalConfirmacao } from "@/components/ui/modal-confirmacao"
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from "@/components/ui/select"
 import { Skeleton } from "@/components/ui/skeleton"
 import { TabelaOuCards, type Coluna } from "@/components/ui/tabela-ou-cards"
 import { useToast } from "@/components/ui/use-toast"
 import api from "@/lib/api"
 import { formatarTelefone } from "@/lib/utils"
 import type { HorarioDia, Profissional } from "@/types"
+
+const ESPECIALIDADES = [
+  "Cabeleireiro(a)",
+  "Barbeiro(a)",
+  "Manicure / Pedicure",
+  "Esteticista",
+  "Maquiador(a)",
+  "Depilação",
+  "Sobrancelhas / Lashes",
+  "Massagista",
+  "Outro",
+]
 
 // ─── Tipos ────────────────────────────────────────────────────────────────────
 
@@ -65,15 +81,13 @@ function HorariosTrabalho({
           <div
             key={key}
             className={`flex items-center gap-3 rounded-md px-3 py-2 transition-colors ${
-              ativo ? "bg-muted/30" : "opacity-50"
+              ativo ? "bg-muted/30" : "opacity-60"
             }`}
           >
-            <input
-              type="checkbox"
+            <Checkbox
               id={`dia-${key}`}
               checked={ativo}
-              onChange={(e) => toggleDia(key, e.target.checked)}
-              className="h-4 w-4 accent-primary cursor-pointer shrink-0"
+              onCheckedChange={(v) => toggleDia(key, !!v)}
             />
             <label
               htmlFor={`dia-${key}`}
@@ -114,8 +128,9 @@ function HorariosTrabalho({
 const profSchema = z.object({
   name: z.string().min(2, "Mínimo 2 caracteres"),
   phone: z.string().min(8, "Telefone inválido"),
-  specialty: z.string().min(2, "Especialidade obrigatória"),
-  commission_percentage: z.coerce.number().min(0).max(100),
+  specialty: z.string().min(1, "Especialidade obrigatória"),
+  specialty_outro: z.string().optional(),
+  commission_percentage: z.coerce.number().min(0, "Mínimo 0%").max(100, "Máximo 100%"),
   color: z.string().min(4, "Cor obrigatória"),
 })
 type ProfForm = z.infer<typeof profSchema>
@@ -124,6 +139,7 @@ const DEFAULT_VALUES: ProfForm = {
   name: "",
   phone: "",
   specialty: "",
+  specialty_outro: "",
   commission_percentage: 0,
   color: "#6366f1",
 }
@@ -193,16 +209,26 @@ export default function ProfissionaisPage() {
     },
   })
 
-  const { register, handleSubmit, reset, watch, formState: { errors } } = useForm<ProfForm>({
+  const { register, handleSubmit, reset, watch, setValue, control, formState: { errors } } = useForm<ProfForm>({
     resolver: zodResolver(profSchema),
     defaultValues: DEFAULT_VALUES,
   })
 
   const watchedColor = watch("color")
+  const specialtyValue = watch("specialty")
+
+  function resolveSpecialty(data: ProfForm): string {
+    return data.specialty === "Outro" ? (data.specialty_outro ?? "") : data.specialty
+  }
 
   const criarMutation = useMutation({
     mutationFn: (data: ProfForm) =>
-      api.post<Profissional>("/professionals", { ...data, working_hours: workingHours }),
+      api.post<Profissional>("/professionals", {
+        ...data,
+        specialty: resolveSpecialty(data),
+        specialty_outro: undefined,
+        working_hours: workingHours,
+      }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["profissionais-admin"] })
       queryClient.invalidateQueries({ queryKey: ["profissionais"] })
@@ -217,7 +243,12 @@ export default function ProfissionaisPage() {
 
   const editarMutation = useMutation({
     mutationFn: ({ id, data }: { id: string; data: ProfForm }) =>
-      api.patch<Profissional>(`/professionals/${id}`, { ...data, working_hours: workingHours }),
+      api.patch<Profissional>(`/professionals/${id}`, {
+        ...data,
+        specialty: resolveSpecialty(data),
+        specialty_outro: undefined,
+        working_hours: workingHours,
+      }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["profissionais-admin"] })
       queryClient.invalidateQueries({ queryKey: ["profissionais"] })
@@ -249,11 +280,13 @@ export default function ProfissionaisPage() {
   }
 
   function handleOpenEdit(p: Profissional) {
+    const isPreset = ESPECIALIDADES.filter((e) => e !== "Outro").includes(p.specialty)
     setEditando(p)
     reset({
       name: p.name,
       phone: p.phone,
-      specialty: p.specialty,
+      specialty: isPreset ? p.specialty : (p.specialty ? "Outro" : ""),
+      specialty_outro: isPreset ? "" : (p.specialty ?? ""),
       commission_percentage: p.commission_percentage,
       color: p.color,
     })
@@ -363,38 +396,71 @@ export default function ProfissionaisPage() {
 
           <div className="grid grid-cols-2 gap-3">
             <div className="col-span-2 space-y-1.5">
-              <Label htmlFor="prof-name">Nome *</Label>
+              <Label htmlFor="prof-name">Nome:*</Label>
               <Input id="prof-name" placeholder="Nome completo" {...register("name")} />
               {errors.name && <p className="text-xs text-destructive">{errors.name.message}</p>}
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="prof-phone">Telefone *</Label>
-              <Input id="prof-phone" placeholder="(11) 99999-9999" {...register("phone")} />
+              <Label htmlFor="prof-phone">Telefone:*</Label>
+              <Input
+                id="prof-phone"
+                placeholder="(11) 99999-9999"
+                {...register("phone")}
+                onChange={(e) => {
+                  const formatted = formatarTelefone(e.target.value)
+                  setValue("phone", formatted, { shouldValidate: true, shouldDirty: true })
+                }}
+              />
               {errors.phone && <p className="text-xs text-destructive">{errors.phone.message}</p>}
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="specialty">Especialidade *</Label>
-              <Input id="specialty" placeholder="Cabelo, Unhas..." {...register("specialty")} />
+              <Label>Especialidade:*</Label>
+              <Controller
+                name="specialty"
+                control={control}
+                render={({ field }) => (
+                  <Select value={field.value} onValueChange={field.onChange}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Selecionar..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {ESPECIALIDADES.map((e) => (
+                        <SelectItem key={e} value={e}>{e}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
+              />
+              {specialtyValue === "Outro" && (
+                <Input
+                  placeholder="Descreva a especialidade..."
+                  {...register("specialty_outro")}
+                />
+              )}
               {errors.specialty && (
                 <p className="text-xs text-destructive">{errors.specialty.message}</p>
               )}
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="commission_percentage">Comissão (%)</Label>
-              <Input
-                id="commission_percentage"
-                type="number"
-                min="0"
-                max="100"
-                step="0.5"
-                {...register("commission_percentage")}
-              />
+              <Label htmlFor="commission_percentage">Comissão (%):</Label>
+              <div className="relative">
+                <Input
+                  id="commission_percentage"
+                  type="number"
+                  min="0"
+                  max="100"
+                  step="0.5"
+                  className="pr-8"
+                  {...register("commission_percentage")}
+                />
+                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground pointer-events-none select-none">%</span>
+              </div>
               {errors.commission_percentage && (
                 <p className="text-xs text-destructive">{errors.commission_percentage.message}</p>
               )}
             </div>
             <div className="space-y-1.5">
-              <Label>Cor da agenda</Label>
+              <Label>Cor da agenda:</Label>
               <div className="flex items-center gap-2">
                 <input
                   type="color"

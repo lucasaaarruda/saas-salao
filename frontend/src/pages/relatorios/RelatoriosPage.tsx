@@ -4,6 +4,7 @@ import { format, startOfMonth } from "date-fns"
 import { BarChart2, Loader2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
+import { DatePicker } from "@/components/ui/date-picker"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Skeleton } from "@/components/ui/skeleton"
@@ -26,7 +27,7 @@ function MetricCard({ label, value }: { label: string; value: string | number })
   return (
     <Card>
       <CardContent className="p-4">
-        <p className="text-sm text-muted-foreground">{label}</p>
+        <p className="text-sm text-foreground">{label}</p>
         <p className="text-2xl font-bold mt-1">{value}</p>
       </CardContent>
     </Card>
@@ -92,25 +93,11 @@ export default function RelatoriosPage() {
 
       <Card>
         <CardContent className="p-4">
-          <div className="flex flex-wrap items-end gap-3">
-            <div className="space-y-1.5">
-              <Label>De</Label>
-              <Input
-                type="date"
-                value={dataInicio}
-                onChange={(e) => handleDateChange("inicio", e.target.value)}
-                className="w-40"
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label>Até</Label>
-              <Input
-                type="date"
-                value={dataFim}
-                onChange={(e) => handleDateChange("fim", e.target.value)}
-                className="w-40"
-              />
-            </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <Label className="text-sm text-foreground">De:</Label>
+            <DatePicker value={dataInicio} onChange={(v) => handleDateChange("inicio", v)} />
+            <Label className="text-sm text-foreground">Até:</Label>
+            <DatePicker value={dataFim} onChange={(v) => handleDateChange("fim", v)} />
             <Button onClick={() => setGerado(true)} disabled={gerado && isLoading}>
               {gerado && isLoading ? (
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />

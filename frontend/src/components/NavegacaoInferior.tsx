@@ -10,6 +10,17 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { useAuthStore } from "@/store/authStore"
 import api from "@/lib/api"
 
+const ROLES_PT: Record<string, string> = {
+  owner: "Proprietário",
+  admin: "Administrador",
+  employee: "Funcionário",
+  manager: "Gerente",
+}
+
+function traduzirRole(role: string): string {
+  return ROLES_PT[role?.toLowerCase()] ?? role
+}
+
 const NAV_PRINCIPAL = [
   { to: "/dashboard",  icon: LayoutDashboard, label: "Painel"    },
   { to: "/agenda",     icon: Calendar,        label: "Agenda"    },
@@ -162,7 +173,7 @@ export function NavegacaoInferior() {
                     </Avatar>
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium text-foreground truncate">{usuario.name}</p>
-                      <p className="text-xs text-muted-foreground capitalize">{usuario.role}</p>
+                      <p className="text-xs text-muted-foreground">{traduzirRole(usuario.role)}</p>
                     </div>
                     <button
                       onClick={handleLogout}

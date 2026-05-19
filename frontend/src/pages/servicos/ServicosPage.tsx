@@ -19,7 +19,7 @@ import { TabelaOuCards, type Coluna } from "@/components/ui/tabela-ou-cards"
 import { Textarea } from "@/components/ui/textarea"
 import { useToast } from "@/components/ui/use-toast"
 import api from "@/lib/api"
-import { formatarMoeda } from "@/lib/utils"
+import { formatarMoeda, formatarMoedaInput } from "@/lib/utils"
 import type { Servico } from "@/types"
 
 const CATEGORIAS = ["Cabelo", "Unhas", "Estética", "Depilação", "Barba", "Maquiagem", "Outros"]
@@ -28,9 +28,16 @@ const servicoSchema = z.object({
   name: z.string().min(2, "Mínimo 2 caracteres"),
   category: z.string().min(1, "Selecione a categoria"),
   duration_minutes: z.coerce.number().int().min(1, "Mínimo 1 minuto"),
-  price: z.coerce.number().min(0, "Preço inválido"),
+  price: z.preprocess(
+    (v) => {
+      if (typeof v !== "string") return v
+      const parsed = parseFloat((v as string).replace(/\./g, "").replace(",", "."))
+      return isNaN(parsed) ? undefined : parsed
+    },
+    z.number({ required_error: "Preço obrigatório", invalid_type_error: "Preço inválido" }).min(0, "Preço inválido")
+  ),
   commission_type: z.enum(["percentage", "fixed"]),
-  commission_value: z.coerce.number().min(0),
+  commission_value: z.coerce.number().min(0, "Valor inválido"),
   description: z.string().optional(),
   color: z.string().min(4, "Cor obrigatória"),
 })
@@ -40,7 +47,7 @@ const DEFAULT_VALUES: ServicoForm = {
   name: "",
   category: "",
   duration_minutes: 60,
-  price: 0,
+  price: "" as unknown as number,
   commission_type: "percentage",
   commission_value: 0,
   description: "",
@@ -111,7 +118,7 @@ export default function ServicosPage() {
     },
   })
 
-  const { register, handleSubmit, reset, control, watch, formState: { errors } } = useForm<ServicoForm>({
+  const { register, handleSubmit, reset, control, watch, setValue, formState: { errors } } = useForm<ServicoForm>({
     resolver: zodResolver(servicoSchema),
     defaultValues: DEFAULT_VALUES,
   })
@@ -178,7 +185,7 @@ export default function ServicosPage() {
       name: s.name,
       category: s.category,
       duration_minutes: s.duration_minutes,
-      price: Number(s.price),
+      price: Number(s.price).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) as unknown as number,
       commission_type: s.commission_type as "percentage" | "fixed",
       commission_value: Number(s.commission_value),
       description: s.description ?? "",
@@ -284,13 +291,13 @@ export default function ServicosPage() {
           )}
           <div className="grid grid-cols-2 gap-3">
             <div className="col-span-2 space-y-1.5">
-              <Label htmlFor="srv-name">Nome *</Label>
+              <Label htmlFor="srv-name">Nome:*</Label>
               <Input id="srv-name" placeholder="Ex: Corte de cabelo" {...register("name")} />
               {errors.name && <p className="text-xs text-destructive">{errors.name.message}</p>}
             </div>
 
             <div className="space-y-1.5">
-              <Label>Categoria *</Label>
+              <Label>Categoria:*</Label>
               <Controller
                 name="category"
                 control={control}
@@ -313,27 +320,45 @@ export default function ServicosPage() {
             </div>
 
             <div className="space-y-1.5">
-              <Label htmlFor="duration_minutes">Duração (min) *</Label>
-              <Input
-                id="duration_minutes"
-                type="number"
-                min="1"
-                step="5"
-                {...register("duration_minutes")}
-              />
+              <Label htmlFor="duration_minutes">Duração (min):*</Label>
+              <div className="relative">
+                <Input
+                  id="duration_minutes"
+                  type="number"
+                  min="1"
+                  step="5"
+                  className="pr-12"
+                  {...register("duration_minutes")}
+                />
+                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground pointer-events-none select-none">min</span>
+              </div>
               {errors.duration_minutes && (
                 <p className="text-xs text-destructive">{errors.duration_minutes.message}</p>
               )}
             </div>
 
             <div className="space-y-1.5">
-              <Label htmlFor="price">Preço (R$) *</Label>
-              <Input id="price" type="number" min="0" step="0.01" {...register("price")} />
+              <Label htmlFor="price">Preço (R$):*</Label>
+              <div className="relative">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground pointer-events-none select-none">R$</span>
+                <Input
+                  id="price"
+                  type="text"
+                  inputMode="decimal"
+                  placeholder="0,00"
+                  className="pl-9"
+                  {...register("price")}
+                  onChange={(e) => {
+                    const formatted = formatarMoedaInput(e.target.value)
+                    setValue("price", formatted as unknown as number, { shouldValidate: true, shouldDirty: true })
+                  }}
+                />
+              </div>
               {errors.price && <p className="text-xs text-destructive">{errors.price.message}</p>}
             </div>
 
             <div className="space-y-1.5">
-              <Label>Tipo de comissão *</Label>
+              <Label>Tipo de comissão:*</Label>
               <Controller
                 name="commission_type"
                 control={control}
@@ -353,32 +378,31 @@ export default function ServicosPage() {
 
             <div className="space-y-1.5">
               <Label htmlFor="commission_value">
-                Comissão {watchedCommType === "percentage" ? "(%)" : "(R$)"}
+                Comissão {watchedCommType === "percentage" ? "(%)" : "(R$)"}:*
               </Label>
-              <Input
-                id="commission_value"
-                type="number"
-                min="0"
-                step={watchedCommType === "percentage" ? "0.5" : "0.01"}
-                {...register("commission_value")}
-              />
+              <div className="relative">
+                {watchedCommType === "fixed" && (
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground pointer-events-none select-none">R$</span>
+                )}
+                <Input
+                  id="commission_value"
+                  type="number"
+                  min="0"
+                  step={watchedCommType === "percentage" ? "0.5" : "0.01"}
+                  className={watchedCommType === "fixed" ? "pl-9 pr-3" : "pr-8"}
+                  {...register("commission_value")}
+                />
+                {watchedCommType === "percentage" && (
+                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground pointer-events-none select-none">%</span>
+                )}
+              </div>
               {errors.commission_value && (
                 <p className="text-xs text-destructive">{errors.commission_value.message}</p>
               )}
             </div>
 
-            <div className="col-span-2 space-y-1.5">
-              <Label htmlFor="description">Descrição</Label>
-              <Textarea
-                id="description"
-                placeholder="Descrição do serviço..."
-                rows={2}
-                {...register("description")}
-              />
-            </div>
-
             <div className="space-y-1.5">
-              <Label>Cor</Label>
+              <Label>Cor:</Label>
               <div className="flex items-center gap-2">
                 <input
                   type="color"
@@ -388,6 +412,16 @@ export default function ServicosPage() {
                 <span className="text-xs text-muted-foreground font-mono">{watchedColor}</span>
               </div>
               {errors.color && <p className="text-xs text-destructive">{errors.color.message}</p>}
+            </div>
+
+            <div className="col-span-2 space-y-1.5">
+              <Label htmlFor="description">Descrição:</Label>
+              <Textarea
+                id="description"
+                placeholder="Descrição do serviço..."
+                rows={2}
+                {...register("description")}
+              />
             </div>
           </div>
         </div>

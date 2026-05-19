@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { DrawerFormulario } from "@/components/ui/drawer-formulario"
 import { EstadoVazio } from "@/components/ui/estado-vazio"
+import { DatePicker } from "@/components/ui/date-picker"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { ModalConfirmacao } from "@/components/ui/modal-confirmacao"
@@ -21,7 +22,7 @@ import { TabelaOuCards, type Coluna } from "@/components/ui/tabela-ou-cards"
 import { Textarea } from "@/components/ui/textarea"
 import { useToast } from "@/components/ui/use-toast"
 import api from "@/lib/api"
-import { cn, formatarMoeda, formatarData } from "@/lib/utils"
+import { cn, formatarMoeda, formatarData, formatarMoedaInput } from "@/lib/utils"
 import type { Transacao, ResumoFinanceiro } from "@/types"
 
 const CATEGORIAS_RECEITA = ["Agendamento", "Venda produto", "Outros"]
@@ -38,7 +39,14 @@ const transacaoSchema = z.object({
   type: z.enum(["income", "expense"]),
   category: z.string().min(1, "Categoria obrigatória"),
   description: z.string().min(1, "Descrição obrigatória"),
-  amount: z.coerce.number().positive("Valor deve ser positivo"),
+  amount: z.preprocess(
+    (v) => {
+      if (typeof v !== "string") return v
+      const parsed = parseFloat((v as string).replace(/\./g, "").replace(",", "."))
+      return isNaN(parsed) ? undefined : parsed
+    },
+    z.number({ required_error: "Valor obrigatório", invalid_type_error: "Valor inválido" }).positive("Valor deve ser positivo")
+  ),
   payment_method: z.string().min(1, "Método obrigatório"),
   transaction_date: z.string().min(1, "Data obrigatória"),
   notes: z.string().optional(),
@@ -49,6 +57,7 @@ const DEFAULT_FORM: Partial<TransacaoForm> = {
   type: "income",
   transaction_date: format(new Date(), "yyyy-MM-dd"),
   payment_method: "pix",
+  amount: "" as unknown as number,
 }
 
 const COLUNAS: Coluna<Transacao>[] = [
@@ -192,27 +201,11 @@ export default function FinanceiroPage() {
       </div>
 
       {/* Date filter */}
-      <div className="flex flex-wrap gap-3 items-end">
-        <div className="space-y-1.5">
-          <Label htmlFor="dt-inicio">De</Label>
-          <Input
-            id="dt-inicio"
-            type="date"
-            value={dataInicio}
-            onChange={(e) => setDataInicio(e.target.value)}
-            className="w-40"
-          />
-        </div>
-        <div className="space-y-1.5">
-          <Label htmlFor="dt-fim">Até</Label>
-          <Input
-            id="dt-fim"
-            type="date"
-            value={dataFim}
-            onChange={(e) => setDataFim(e.target.value)}
-            className="w-40"
-          />
-        </div>
+      <div className="flex flex-wrap gap-2 items-center">
+        <Label className="text-sm text-foreground">De:</Label>
+        <DatePicker value={dataInicio} onChange={setDataInicio} />
+        <Label className="text-sm text-foreground">Até:</Label>
+        <DatePicker value={dataFim} onChange={setDataFim} />
       </div>
 
       {/* Summary cards */}
@@ -345,7 +338,7 @@ export default function FinanceiroPage() {
           )}
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
-              <Label>Tipo *</Label>
+              <Label>Tipo:*</Label>
               <Controller
                 name="type"
                 control={control}
@@ -364,15 +357,26 @@ export default function FinanceiroPage() {
             </div>
 
             <div className="space-y-1.5">
-              <Label htmlFor="transaction_date">Data *</Label>
-              <Input id="transaction_date" type="date" {...register("transaction_date")} />
+              <Label>Data:*</Label>
+              <Controller
+                name="transaction_date"
+                control={control}
+                render={({ field }) => (
+                  <DatePicker
+                    value={field.value}
+                    onChange={field.onChange}
+                    className="w-full"
+                    placeholder="dd/mm/aaaa"
+                  />
+                )}
+              />
               {errors.transaction_date && (
                 <p className="text-xs text-destructive">{errors.transaction_date.message}</p>
               )}
             </div>
 
             <div className="space-y-1.5">
-              <Label>Categoria *</Label>
+              <Label>Categoria:*</Label>
               <Controller
                 name="category"
                 control={control}
@@ -395,7 +399,7 @@ export default function FinanceiroPage() {
             </div>
 
             <div className="space-y-1.5">
-              <Label>Método de pagamento *</Label>
+              <Label>Método de pagamento:*</Label>
               <Controller
                 name="payment_method"
                 control={control}
@@ -418,7 +422,7 @@ export default function FinanceiroPage() {
             </div>
 
             <div className="col-span-2 space-y-1.5">
-              <Label htmlFor="fin-desc">Descrição *</Label>
+              <Label htmlFor="fin-desc">Descrição:*</Label>
               <Input id="fin-desc" placeholder="Ex: Corte de cabelo" {...register("description")} />
               {errors.description && (
                 <p className="text-xs text-destructive">{errors.description.message}</p>
@@ -426,13 +430,27 @@ export default function FinanceiroPage() {
             </div>
 
             <div className="space-y-1.5">
-              <Label htmlFor="amount">Valor (R$) *</Label>
-              <Input id="amount" type="number" min="0.01" step="0.01" {...register("amount")} />
+              <Label htmlFor="amount">Valor (R$):*</Label>
+              <div className="relative">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground pointer-events-none select-none">R$</span>
+                <Input
+                  id="amount"
+                  type="text"
+                  inputMode="decimal"
+                  placeholder="0,00"
+                  className="pl-9"
+                  {...register("amount")}
+                  onChange={(e) => {
+                    const formatted = formatarMoedaInput(e.target.value)
+                    setValue("amount", formatted as unknown as number, { shouldValidate: true, shouldDirty: true })
+                  }}
+                />
+              </div>
               {errors.amount && <p className="text-xs text-destructive">{errors.amount.message}</p>}
             </div>
 
             <div className="col-span-2 space-y-1.5">
-              <Label htmlFor="fin-notes">Observações</Label>
+              <Label htmlFor="fin-notes">Observações:</Label>
               <Textarea id="fin-notes" placeholder="Observações..." rows={2} {...register("notes")} />
             </div>
           </div>

@@ -75,7 +75,7 @@ export default function ForgotPasswordPage() {
         )}
 
         <div className="space-y-1.5">
-          <Label htmlFor="email">Email</Label>
+          <Label htmlFor="email">Email:</Label>
           <Input
             id="email"
             type="email"

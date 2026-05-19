@@ -78,6 +78,17 @@ function NavItem({
   )
 }
 
+const ROLES_PT: Record<string, string> = {
+  owner: "Proprietário",
+  admin: "Administrador",
+  employee: "Funcionário",
+  manager: "Gerente",
+}
+
+function traduzirRole(role: string): string {
+  return ROLES_PT[role?.toLowerCase()] ?? role
+}
+
 export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
   const { usuario, logout } = useAuthStore()
   const { theme, toggleTheme } = useThemeStore()
@@ -101,15 +112,15 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
       {/* Logo */}
       <div
         className={cn(
-          "flex items-center h-14 shrink-0 px-3 gap-2",
+          "flex items-center h-16 shrink-0 px-3 gap-2",
           collapsed ? "justify-center" : "justify-between"
         )}
       >
         {!collapsed && (
-          <div className="flex items-center gap-2 min-w-0">
-            <img src="/icon.png" alt="Bellezi" className="w-9 h-9 rounded-lg object-cover shrink-0" />
-            <span className="font-semibold text-xl text-foreground truncate">Bellezi</span>
-          </div>
+          <NavLink to="/dashboard" className="flex items-center gap-2.5 min-w-0">
+            <img src="/icon.png" alt="Bellezi" className="w-10 h-10 rounded-xl object-cover shrink-0" />
+            <span className="font-bold text-2xl text-foreground truncate">Bellezi</span>
+          </NavLink>
         )}
         <button
           onClick={onToggle}
@@ -163,28 +174,28 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
       <div className="h-px bg-sidebar-border shrink-0" />
 
       {/* Rodapé — usuário + logout */}
-      <div className="shrink-0 px-2 py-3">
+      <div className="shrink-0 px-2 py-3.5">
         {usuario && (
           <div
             className={cn(
-              "group flex items-center gap-2.5 rounded-md px-2 py-2",
+              "group flex items-center gap-2.5 rounded-md px-2.5 py-2.5",
               "hover:bg-accent/60 transition-colors duration-100",
               collapsed && "justify-center px-0"
             )}
           >
-            <Avatar className="h-7 w-7 shrink-0">
-              <AvatarFallback className="text-[10px] font-semibold bg-primary/15 text-primary">
+            <Avatar className="h-10 w-10 shrink-0">
+              <AvatarFallback className="text-xs font-semibold bg-primary/15 text-primary">
                 {iniciais(usuario.name)}
               </AvatarFallback>
             </Avatar>
             {!collapsed && (
               <>
                 <div className="flex-1 min-w-0">
-                  <p className="text-xs font-medium text-foreground truncate leading-none mb-0.5">
+                  <p className="text-sm font-semibold text-foreground truncate leading-none mb-1">
                     {usuario.name}
                   </p>
-                  <p className="text-[11px] text-muted-foreground truncate capitalize leading-none">
-                    {usuario.role}
+                  <p className="text-xs text-muted-foreground truncate leading-none">
+                    {traduzirRole(usuario.role)}
                   </p>
                 </div>
                 <button

@@ -1,6 +1,6 @@
 import { useState } from "react"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
-import { format } from "date-fns"
+import { format, parseISO } from "date-fns"
 import { Loader2, MoreVertical, Plus, UserPlus } from "lucide-react"
 import { useForm, Controller } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
@@ -8,6 +8,7 @@ import { z } from "zod"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Calendar } from "@/components/ui/calendar"
+import { DatePicker } from "@/components/ui/date-picker"
 import { Card, CardContent } from "@/components/ui/card"
 import { DrawerFormulario } from "@/components/ui/drawer-formulario"
 import {
@@ -23,7 +24,7 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { Textarea } from "@/components/ui/textarea"
 import { useToast } from "@/components/ui/use-toast"
 import api from "@/lib/api"
-import { formatarMoeda } from "@/lib/utils"
+import { formatarCpf, formatarMoeda, formatarTelefone, validarCpf } from "@/lib/utils"
 import type { Agendamento, Cliente, Profissional, Servico, StatusAgendamento } from "@/types"
 
 type BadgeVariant = "default" | "secondary" | "destructive" | "outline" | "success" | "warning" | "info"
@@ -68,10 +69,8 @@ const novoClienteSchema = z.object({
   name: z.string().min(2, "Nome obrigatório"),
   phone: z.string().min(8, "Telefone inválido"),
   email: z.string().email("Email inválido").optional().or(z.literal("")),
-  cpf: z
-    .string()
-    .length(11, "CPF deve ter 11 dígitos")
-    .regex(/^\d+$/, "Apenas números")
+  cpf: z.string()
+    .refine((val) => val === "" || validarCpf(val), "CPF inválido")
     .optional()
     .or(z.literal("")),
 })
@@ -93,6 +92,7 @@ function NovoClienteInline({
   const {
     register,
     handleSubmit,
+    setValue,
     formState: { errors, isSubmitting },
   } = useForm<NovoClienteForm>({ resolver: zodResolver(novoClienteSchema) })
 
@@ -127,27 +127,31 @@ function NovoClienteInline({
 
       <div className="grid grid-cols-2 gap-2">
         <div className="col-span-2 space-y-1">
-          <Label className="text-xs">Nome *</Label>
+          <Label className="text-xs">Nome:*</Label>
           <Input className="h-8 text-sm" placeholder="Nome completo" {...register("name")} />
           {errors.name && <p className="text-xs text-destructive">{errors.name.message}</p>}
         </div>
         <div className="space-y-1">
-          <Label className="text-xs">Telefone *</Label>
+          <Label className="text-xs">Telefone:*</Label>
           <Input className="h-8 text-sm" placeholder="(11) 99999-9999" {...register("phone")} />
           {errors.phone && <p className="text-xs text-destructive">{errors.phone.message}</p>}
         </div>
         <div className="space-y-1">
-          <Label className="text-xs">CPF</Label>
+          <Label className="text-xs">CPF:</Label>
           <Input
             className="h-8 text-sm"
-            placeholder="00000000000"
-            maxLength={11}
+            placeholder="000.000.000-00"
+            maxLength={14}
             {...register("cpf")}
+            onChange={(e) => {
+              const formatted = formatarCpf(e.target.value)
+              setValue("cpf", formatted, { shouldValidate: true, shouldDirty: true })
+            }}
           />
           {errors.cpf && <p className="text-xs text-destructive">{errors.cpf.message}</p>}
         </div>
         <div className="col-span-2 space-y-1">
-          <Label className="text-xs">Email</Label>
+          <Label className="text-xs">Email:</Label>
           <Input
             className="h-8 text-sm"
             type="email"
@@ -442,14 +446,18 @@ export default function AgendaPage() {
 
           {/* Cliente com opção de cadastro inline */}
           <div className="space-y-1.5">
-            <Label>Cliente *</Label>
+            <Label>Cliente:*</Label>
             <Controller
               name="client_id"
               control={control}
               render={({ field }) => (
-                <Select value={field.value} onValueChange={field.onChange}>
+                <Select
+                  value={field.value}
+                  onValueChange={field.onChange}
+                  disabled={!clientes?.length}
+                >
                   <SelectTrigger>
-                    <SelectValue placeholder="Selecione o cliente..." />
+                    <SelectValue placeholder={clientes?.length ? "Selecione o cliente..." : "Nenhum cliente cadastrado"} />
                   </SelectTrigger>
                   <SelectContent>
                     {(clientes ?? []).map((c) => (
@@ -485,7 +493,7 @@ export default function AgendaPage() {
 
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
-              <Label>Profissional *</Label>
+              <Label>Profissional:*</Label>
               <Controller
                 name="professional_id"
                 control={control}
@@ -496,9 +504,10 @@ export default function AgendaPage() {
                       field.onChange(v)
                       setValue("start_time", "", { shouldValidate: false })
                     }}
+                    disabled={!profissionais?.length}
                   >
                     <SelectTrigger>
-                      <SelectValue placeholder="Selecione..." />
+                      <SelectValue placeholder={profissionais?.length ? "Selecione..." : "Nenhum cadastrado"} />
                     </SelectTrigger>
                     <SelectContent>
                       {(profissionais ?? []).map((p) => (
@@ -508,13 +517,18 @@ export default function AgendaPage() {
                   </Select>
                 )}
               />
+              {!profissionais?.length && (
+                <p className="text-xs text-muted-foreground">
+                  Cadastre profissionais em <span className="text-primary">Profissionais</span> para continuar.
+                </p>
+              )}
               {errors.professional_id && (
                 <p className="text-xs text-destructive">{errors.professional_id.message}</p>
               )}
             </div>
 
             <div className="space-y-1.5">
-              <Label>Serviço *</Label>
+              <Label>Serviço:*</Label>
               <Controller
                 name="service_id"
                 control={control}
@@ -525,9 +539,10 @@ export default function AgendaPage() {
                       field.onChange(v)
                       setValue("start_time", "", { shouldValidate: false })
                     }}
+                    disabled={!servicos?.length}
                   >
                     <SelectTrigger>
-                      <SelectValue placeholder="Selecione..." />
+                      <SelectValue placeholder={servicos?.length ? "Selecione..." : "Nenhum cadastrado"} />
                     </SelectTrigger>
                     <SelectContent>
                       {(servicos ?? []).map((s) => (
@@ -537,6 +552,11 @@ export default function AgendaPage() {
                   </Select>
                 )}
               />
+              {!servicos?.length && (
+                <p className="text-xs text-muted-foreground">
+                  Cadastre serviços em <span className="text-primary">Serviços</span> para continuar.
+                </p>
+              )}
               {errors.service_id && (
                 <p className="text-xs text-destructive">{errors.service_id.message}</p>
               )}
@@ -552,13 +572,17 @@ export default function AgendaPage() {
 
           {/* Data */}
           <div className="space-y-1.5">
-            <Label>Data</Label>
-            <Input type="date" value={dateStr} readOnly className="bg-muted cursor-default" />
+            <Label>Data:</Label>
+            <DatePicker
+              value={dateStr}
+              onChange={(val) => setSelectedDate(parseISO(val))}
+              className="w-full"
+            />
           </div>
 
           {/* Slot buttons de horário */}
           <div className="space-y-1.5">
-            <Label>Horário *</Label>
+            <Label>Horário:*</Label>
             <input type="hidden" {...register("start_time")} />
 
             {!watchedProfId || !watchedServiceId ? (
@@ -600,7 +624,7 @@ export default function AgendaPage() {
           </div>
 
           <div className="space-y-1.5">
-            <Label htmlFor="ag-notes">Observações</Label>
+            <Label htmlFor="ag-notes">Observações:</Label>
             <Textarea
               id="ag-notes"
               placeholder="Alguma observação..."

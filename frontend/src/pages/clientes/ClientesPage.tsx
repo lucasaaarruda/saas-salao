@@ -1,37 +1,53 @@
 import { useState, useEffect } from "react"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
-import { useForm } from "react-hook-form"
+import { useForm, Controller } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { z } from "zod"
 import { Plus, Search, Pencil, Trash2 } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import { DatePicker } from "@/components/ui/date-picker"
 import { DrawerFormulario } from "@/components/ui/drawer-formulario"
 import { EstadoVazio } from "@/components/ui/estado-vazio"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { ModalConfirmacao } from "@/components/ui/modal-confirmacao"
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from "@/components/ui/select"
 import { Skeleton } from "@/components/ui/skeleton"
 import { TabelaOuCards, type Coluna } from "@/components/ui/tabela-ou-cards"
 import { Textarea } from "@/components/ui/textarea"
 import { useToast } from "@/components/ui/use-toast"
 import api from "@/lib/api"
-import { formatarMoeda, formatarTelefone } from "@/lib/utils"
+import { formatarCpf, formatarMoeda, formatarTelefone, validarCpf } from "@/lib/utils"
 import type { Cliente } from "@/types"
+
+const HOW_MET_OPTIONS = [
+  "Instagram",
+  "Facebook",
+  "TikTok",
+  "Google",
+  "WhatsApp",
+  "Indicação de amigo",
+  "Passou na rua",
+  "Outro",
+]
 
 const clienteSchema = z.object({
   name: z.string().min(2, "Mínimo 2 caracteres"),
   phone: z.string().min(8, "Telefone inválido"),
   email: z.string().email("Email inválido").optional().or(z.literal("")),
   birth_date: z.string().optional(),
-  cpf: z.string().optional(),
+  cpf: z.string().refine((val) => !val || validarCpf(val), "CPF inválido").optional(),
   how_met: z.string().optional(),
+  how_met_outro: z.string().optional(),
   notes: z.string().optional(),
 })
 type ClienteForm = z.infer<typeof clienteSchema>
 
 const EMPTY_FORM: ClienteForm = {
-  name: "", phone: "", email: "", birth_date: "", cpf: "", how_met: "", notes: "",
+  name: "", phone: "", email: "", birth_date: "", cpf: "", how_met: "", how_met_outro: "", notes: "",
 }
 
 const COLUNAS: Coluna<Cliente>[] = [
@@ -86,9 +102,16 @@ export default function ClientesPage() {
     },
   })
 
-  const { register, handleSubmit, reset, formState: { errors } } = useForm<ClienteForm>({
+  const { register, handleSubmit, reset, watch, setValue, control, formState: { errors } } = useForm<ClienteForm>({
     resolver: zodResolver(clienteSchema),
   })
+
+  const howMetValue = watch("how_met")
+
+  function resolveHowMet(data: ClienteForm) {
+    if (data.how_met === "Outro") return data.how_met_outro || undefined
+    return data.how_met || undefined
+  }
 
   const criarMutation = useMutation({
     mutationFn: (data: ClienteForm) =>
@@ -97,7 +120,8 @@ export default function ClientesPage() {
         email: data.email || undefined,
         birth_date: data.birth_date || undefined,
         cpf: data.cpf || undefined,
-        how_met: data.how_met || undefined,
+        how_met: resolveHowMet(data),
+        how_met_outro: undefined,
         notes: data.notes || undefined,
       }),
     onSuccess: () => {
@@ -119,7 +143,8 @@ export default function ClientesPage() {
         email: data.email || undefined,
         birth_date: data.birth_date || undefined,
         cpf: data.cpf || undefined,
-        how_met: data.how_met || undefined,
+        how_met: resolveHowMet(data),
+        how_met_outro: undefined,
         notes: data.notes || undefined,
       }),
     onSuccess: () => {
@@ -152,6 +177,7 @@ export default function ClientesPage() {
   }
 
   function handleOpenEdit(c: Cliente) {
+    const isPreset = HOW_MET_OPTIONS.filter((o) => o !== "Outro").includes(c.how_met ?? "")
     setEditando(c)
     reset({
       name: c.name,
@@ -159,7 +185,8 @@ export default function ClientesPage() {
       email: c.email ?? "",
       birth_date: c.birth_date ?? "",
       cpf: c.cpf ?? "",
-      how_met: c.how_met ?? "",
+      how_met: isPreset ? (c.how_met ?? "") : (c.how_met ? "Outro" : ""),
+      how_met_outro: isPreset ? "" : (c.how_met ?? ""),
       notes: c.notes ?? "",
     })
     setFormErro("")
@@ -275,38 +302,82 @@ export default function ClientesPage() {
           )}
           <div className="grid grid-cols-2 gap-3">
             <div className="col-span-2 space-y-1.5">
-              <Label htmlFor="name">Nome *</Label>
+              <Label htmlFor="name">Nome:*</Label>
               <Input id="name" placeholder="Nome completo" {...register("name")} />
               {errors.name && <p className="text-xs text-destructive">{errors.name.message}</p>}
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="phone">Telefone *</Label>
-              <Input id="phone" placeholder="(11) 99999-9999" {...register("phone")} />
+              <Label htmlFor="phone">Telefone:*</Label>
+              <Input
+                id="phone"
+                placeholder="(11) 99999-9999"
+                {...register("phone")}
+                onChange={(e) => {
+                  const formatted = formatarTelefone(e.target.value)
+                  setValue("phone", formatted, { shouldValidate: true, shouldDirty: true })
+                }}
+              />
               {errors.phone && <p className="text-xs text-destructive">{errors.phone.message}</p>}
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="email">Email</Label>
+              <Label htmlFor="email">Email:</Label>
               <Input id="email" type="email" placeholder="email@exemplo.com" {...register("email")} />
               {errors.email && <p className="text-xs text-destructive">{errors.email.message}</p>}
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="birth_date">Data de nascimento</Label>
-              <Input id="birth_date" type="date" {...register("birth_date")} />
+              <Label>Data de nascimento:</Label>
+              <Controller
+                name="birth_date"
+                control={control}
+                render={({ field }) => (
+                  <DatePicker
+                    value={field.value ?? ""}
+                    onChange={field.onChange}
+                    className="w-full"
+                    placeholder="dd/mm/aaaa"
+                  />
+                )}
+              />
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="cpf">CPF</Label>
-              <Input id="cpf" placeholder="000.000.000-00" {...register("cpf")} />
-            </div>
-            <div className="col-span-2 space-y-1.5">
-              <Label htmlFor="how_met">Como nos conheceu</Label>
+              <Label htmlFor="cpf">CPF:</Label>
               <Input
-                id="how_met"
-                placeholder="Instagram, indicação, passou na rua..."
-                {...register("how_met")}
+                id="cpf"
+                placeholder="000.000.000-00"
+                {...register("cpf")}
+                onChange={(e) => {
+                  const formatted = formatarCpf(e.target.value)
+                  setValue("cpf", formatted, { shouldValidate: true, shouldDirty: true })
+                }}
               />
             </div>
             <div className="col-span-2 space-y-1.5">
-              <Label htmlFor="notes">Observações</Label>
+              <Label>Como nos conheceu:</Label>
+              <Controller
+                name="how_met"
+                control={control}
+                render={({ field }) => (
+                  <Select value={field.value ?? ""} onValueChange={field.onChange}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Selecionar..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {HOW_MET_OPTIONS.map((opt) => (
+                        <SelectItem key={opt} value={opt}>{opt}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
+              />
+              {howMetValue === "Outro" && (
+                <Input
+                  placeholder="Conte como nos conheceu..."
+                  {...register("how_met_outro")}
+                />
+              )}
+            </div>
+            <div className="col-span-2 space-y-1.5">
+              <Label htmlFor="notes">Observações:</Label>
               <Textarea
                 id="notes"
                 placeholder="Observações sobre o cliente..."

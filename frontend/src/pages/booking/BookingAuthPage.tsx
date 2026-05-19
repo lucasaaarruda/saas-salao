@@ -11,6 +11,7 @@ import { Label } from "@/components/ui/label"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { useClienteAuthStore } from "@/store/clienteAuthStore"
 import { loginCliente, registrarCliente } from "@/api/booking"
+import { formatarCpf, validarCpf } from "@/lib/utils"
 import type { ClientePublico } from "@/types"
 
 const loginSchema = z.object({
@@ -24,10 +25,7 @@ const registerSchema = z.object({
   email: z.string().email("Email inválido"),
   password: z.string().min(8, "Senha deve ter ao menos 8 caracteres"),
   phone: z.string().min(8, "Telefone inválido").max(20),
-  cpf: z
-    .string()
-    .length(11, "CPF deve ter 11 dígitos")
-    .regex(/^\d+$/, "Apenas números"),
+  cpf: z.string().min(1, "CPF obrigatório").refine(validarCpf, "CPF inválido"),
   birth_date: z.string().optional(),
 })
 type RegisterData = z.infer<typeof registerSchema>
@@ -109,13 +107,13 @@ function LoginForm({
       )}
 
       <div className="space-y-1.5">
-        <Label>Email</Label>
+        <Label>Email:</Label>
         <Input type="email" placeholder="seu@email.com" autoComplete="email" {...register("email")} />
         {errors.email && <p className="text-xs text-destructive">{errors.email.message}</p>}
       </div>
 
       <div className="space-y-1.5">
-        <Label>Senha</Label>
+        <Label>Senha:</Label>
         <div className="relative">
           <Input
             type={verSenha ? "text" : "password"}
@@ -155,6 +153,7 @@ function RegisterForm({
   const {
     register,
     handleSubmit,
+    setValue,
     formState: { errors, isSubmitting },
   } = useForm<RegisterData>({ resolver: zodResolver(registerSchema) })
 
@@ -185,19 +184,19 @@ function RegisterForm({
       )}
 
       <div className="space-y-1.5">
-        <Label>Nome completo</Label>
+        <Label>Nome completo:</Label>
         <Input placeholder="Seu nome" autoComplete="name" {...register("name")} />
         {errors.name && <p className="text-xs text-destructive">{errors.name.message}</p>}
       </div>
 
       <div className="space-y-1.5">
-        <Label>Email</Label>
+        <Label>Email:</Label>
         <Input type="email" placeholder="seu@email.com" autoComplete="email" {...register("email")} />
         {errors.email && <p className="text-xs text-destructive">{errors.email.message}</p>}
       </div>
 
       <div className="space-y-1.5">
-        <Label>Senha</Label>
+        <Label>Senha:</Label>
         <div className="relative">
           <Input
             type={verSenha ? "text" : "password"}
@@ -219,22 +218,27 @@ function RegisterForm({
 
       <div className="grid grid-cols-2 gap-3">
         <div className="space-y-1.5">
-          <Label>Telefone</Label>
+          <Label>Telefone:</Label>
           <Input placeholder="(11) 99999-9999" autoComplete="tel" {...register("phone")} />
           {errors.phone && <p className="text-xs text-destructive">{errors.phone.message}</p>}
         </div>
         <div className="space-y-1.5">
-          <Label>CPF</Label>
-          <Input placeholder="00000000000" maxLength={11} {...register("cpf")} />
+          <Label>CPF:</Label>
+          <Input
+            placeholder="000.000.000-00"
+            maxLength={14}
+            {...register("cpf")}
+            onChange={(e) => {
+              const formatted = formatarCpf(e.target.value)
+              setValue("cpf", formatted, { shouldValidate: true, shouldDirty: true })
+            }}
+          />
           {errors.cpf && <p className="text-xs text-destructive">{errors.cpf.message}</p>}
         </div>
       </div>
 
       <div className="space-y-1.5">
-        <Label>
-          Data de nascimento{" "}
-          <span className="text-muted-foreground font-normal">(opcional)</span>
-        </Label>
+        <Label>Data de nascimento:</Label>
         <Input type="date" {...register("birth_date")} />
       </div>
 

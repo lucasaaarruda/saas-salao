@@ -8,6 +8,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Checkbox } from "@/components/ui/checkbox"
+import { CidadeCombobox } from "@/components/ui/cidade-combobox"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import {
@@ -19,7 +20,9 @@ import {
   Tabs, TabsContent, TabsList, TabsTrigger,
 } from "@/components/ui/tabs"
 import { useToast } from "@/components/ui/use-toast"
+import { useCep } from "@/hooks/useCep"
 import api from "@/lib/api"
+import { formatarTelefone } from "@/lib/utils"
 import type { Salao } from "@/types"
 
 const ESTADOS_BR = [
@@ -42,7 +45,8 @@ const salaoSchema = z.object({
   name: z.string().min(2, "Mínimo 2 caracteres"),
   phone: z.string().min(8, "Telefone inválido"),
   email: z.string().email("Email inválido").optional().or(z.literal("")),
-  address: z.string().optional(),
+  street: z.string().optional(),
+  number: z.string().optional(),
   city: z.string().min(2, "Cidade obrigatória"),
   state: z.string().length(2, "Selecione o estado"),
   opening_time: z.string().min(1, "Obrigatório"),
@@ -72,6 +76,8 @@ export default function ConfiguracoesPage() {
   const [verNova, setVerNova] = useState(false)
   const [verConfirmar, setVerConfirmar] = useState(false)
   const [senhaErro, setSenhaErro] = useState("")
+  const [cep, setCep] = useState("")
+  const { buscarCep, loading: loadingCep } = useCep()
 
   const { data: salao, isLoading } = useQuery({
     queryKey: ["salon-me"],
@@ -88,7 +94,8 @@ export default function ConfiguracoesPage() {
           name: salao.name,
           phone: salao.phone,
           email: salao.email ?? "",
-          address: salao.address ?? "",
+          street: salao.address ?? "",
+          number: "",
           city: salao.city,
           state: salao.state,
           opening_time: salao.opening_time.slice(0, 5),
@@ -110,7 +117,7 @@ export default function ConfiguracoesPage() {
       api.patch<Salao>("/salon/me", {
         ...data,
         email: data.email || undefined,
-        address: data.address || undefined,
+        address: [data.street, data.number].filter(Boolean).join(", ") || undefined,
         opening_time: data.opening_time + ":00",
         closing_time: data.closing_time + ":00",
       }),
@@ -167,10 +174,10 @@ export default function ConfiguracoesPage() {
                   <CardTitle className="text-lg">Informações do salão</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <div className="sm:col-span-2 space-y-1.5">
-                      <Label>Nome *</Label>
-                      <Input {...salaoForm.register("name")} />
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <div className="space-y-1.5">
+                      <Label>Nome do Salão:*</Label>
+                      <Input placeholder="Nome do seu salão" {...salaoForm.register("name")} />
                       {salaoForm.formState.errors.name && (
                         <p className="text-xs text-destructive">
                           {salaoForm.formState.errors.name.message}
@@ -178,8 +185,15 @@ export default function ConfiguracoesPage() {
                       )}
                     </div>
                     <div className="space-y-1.5">
-                      <Label>Telefone *</Label>
-                      <Input {...salaoForm.register("phone")} />
+                      <Label>Telefone:*</Label>
+                      <Input
+                        placeholder="(11) 99999-9999"
+                        {...salaoForm.register("phone")}
+                        onChange={(e) => {
+                          const formatted = formatarTelefone(e.target.value)
+                          salaoForm.setValue("phone", formatted, { shouldValidate: true, shouldDirty: true })
+                        }}
+                      />
                       {salaoForm.formState.errors.phone && (
                         <p className="text-xs text-destructive">
                           {salaoForm.formState.errors.phone.message}
@@ -187,34 +201,58 @@ export default function ConfiguracoesPage() {
                       )}
                     </div>
                     <div className="space-y-1.5">
-                      <Label>Email</Label>
-                      <Input type="email" {...salaoForm.register("email")} />
+                      <Label>Email:</Label>
+                      <Input type="email" placeholder="contato@salao.com" {...salaoForm.register("email")} />
                       {salaoForm.formState.errors.email && (
                         <p className="text-xs text-destructive">
                           {salaoForm.formState.errors.email.message}
                         </p>
                       )}
                     </div>
-                    <div className="sm:col-span-2 space-y-1.5">
-                      <Label>Endereço</Label>
-                      <Input {...salaoForm.register("address")} />
+                    <div className="space-y-1.5">
+                      <Label>CEP:</Label>
+                      <div className="relative">
+                        <Input
+                          value={cep}
+                          maxLength={9}
+                          placeholder="00000-000"
+                          onChange={async (e) => {
+                            const raw = e.target.value.replace(/\D/g, "").slice(0, 8)
+                            const masked = raw.length > 5 ? `${raw.slice(0, 5)}-${raw.slice(5)}` : raw
+                            setCep(masked)
+                            if (raw.length === 8) {
+                              const data = await buscarCep(raw)
+                              if (data) {
+                                salaoForm.setValue("street", data.logradouro)
+                                salaoForm.setValue("state", data.uf)
+                                salaoForm.setValue("city", data.localidade)
+                              }
+                            }
+                          }}
+                        />
+                        {loadingCep && (
+                          <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 animate-spin text-muted-foreground" />
+                        )}
+                      </div>
                     </div>
                     <div className="space-y-1.5">
-                      <Label>Cidade *</Label>
-                      <Input {...salaoForm.register("city")} />
-                      {salaoForm.formState.errors.city && (
-                        <p className="text-xs text-destructive">
-                          {salaoForm.formState.errors.city.message}
-                        </p>
-                      )}
+                      <Label>Rua:</Label>
+                      <Input placeholder="Rua das Flores" {...salaoForm.register("street")} />
                     </div>
                     <div className="space-y-1.5">
-                      <Label>Estado *</Label>
+                      <Label>Número:</Label>
+                      <Input placeholder="123" {...salaoForm.register("number")} />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label>Estado:*</Label>
                       <Controller
                         name="state"
                         control={salaoForm.control}
                         render={({ field }) => (
-                          <Select value={field.value} onValueChange={field.onChange}>
+                          <Select value={field.value} onValueChange={(v) => {
+                            field.onChange(v)
+                            salaoForm.setValue("city", "")
+                          }}>
                             <SelectTrigger>
                               <SelectValue placeholder="UF" />
                             </SelectTrigger>
@@ -232,23 +270,44 @@ export default function ConfiguracoesPage() {
                         </p>
                       )}
                     </div>
+                    <div className="sm:col-span-2 space-y-1.5">
+                      <Label>Cidade:*</Label>
+                      <Controller
+                        name="city"
+                        control={salaoForm.control}
+                        render={({ field }) => (
+                          <CidadeCombobox
+                            uf={salaoForm.watch("state") ?? ""}
+                            value={field.value}
+                            onChange={field.onChange}
+                          />
+                        )}
+                      />
+                      {salaoForm.formState.errors.city && (
+                        <p className="text-xs text-destructive">
+                          {salaoForm.formState.errors.city.message}
+                        </p>
+                      )}
+                    </div>
                   </div>
 
-                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                  <div className="grid grid-cols-3 gap-3">
                     <div className="space-y-1.5">
-                      <Label>Abertura *</Label>
+                      <Label>Abertura:*</Label>
                       <Input type="time" {...salaoForm.register("opening_time")} />
                     </div>
                     <div className="space-y-1.5">
-                      <Label>Fechamento *</Label>
+                      <Label>Fechamento:*</Label>
                       <Input type="time" {...salaoForm.register("closing_time")} />
                     </div>
-                    <div className="col-span-2 sm:col-span-1 space-y-1.5">
-                      <Label>Slot (min) *</Label>
+                    <div className="space-y-1.5">
+                      <Label>Intervalo de agendamento (min):*</Label>
                       <Input
                         type="number"
                         min="5"
+                        max="120"
                         step="5"
+                        placeholder="30"
                         {...salaoForm.register("slot_duration_minutes")}
                       />
                       {salaoForm.formState.errors.slot_duration_minutes && (
@@ -345,11 +404,12 @@ export default function ConfiguracoesPage() {
                 )}
 
                 <div className="space-y-1.5">
-                  <Label htmlFor="senha-atual">Senha atual *</Label>
+                  <Label htmlFor="senha-atual">Senha atual:*</Label>
                   <div className="relative">
                     <Input
                       id="senha-atual"
                       type={verAtual ? "text" : "password"}
+                      placeholder="Senha atual"
                       {...senhaForm.register("senha_atual")}
                     />
                     <Button
@@ -370,11 +430,12 @@ export default function ConfiguracoesPage() {
                 </div>
 
                 <div className="space-y-1.5">
-                  <Label htmlFor="nova-senha">Nova senha *</Label>
+                  <Label htmlFor="nova-senha">Nova senha:*</Label>
                   <div className="relative">
                     <Input
                       id="nova-senha"
                       type={verNova ? "text" : "password"}
+                      placeholder="Mínimo 8 caracteres"
                       {...senhaForm.register("nova_senha")}
                     />
                     <Button
@@ -395,11 +456,12 @@ export default function ConfiguracoesPage() {
                 </div>
 
                 <div className="space-y-1.5">
-                  <Label htmlFor="confirmar-nova-senha">Confirmar nova senha *</Label>
+                  <Label htmlFor="confirmar-nova-senha">Confirmar nova senha:*</Label>
                   <div className="relative">
                     <Input
                       id="confirmar-nova-senha"
                       type={verConfirmar ? "text" : "password"}
+                      placeholder="Repita a nova senha"
                       {...senhaForm.register("confirmar_nova_senha")}
                     />
                     <Button
