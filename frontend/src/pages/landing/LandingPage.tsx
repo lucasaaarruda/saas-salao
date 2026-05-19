@@ -172,7 +172,7 @@ export default function LandingPage() {
         <div className="relative mx-auto max-w-4xl text-center">
           {/* Logo grande no hero */}
           <div className="fade-in-up mb-3 flex justify-center">
-            <img src={logoSrc} alt="Bellezi" className="h-40 w-auto rounded-2xl" />
+            <img src={logoSrc} alt="Bellezi" className="h-56 w-auto rounded-2xl" />
           </div>
 
           <div className="fade-in-up mb-5 inline-flex items-center gap-2 rounded-full border border-primary/30 bg-primary/10 px-4 py-1.5 text-xs font-medium text-primary">
@@ -495,7 +495,7 @@ export default function LandingPage() {
             </div>
             <div className="relative">
               <div className="mb-3 flex justify-center">
-                <img src={logoSrc} alt="Bellezi" className="h-32 w-auto rounded-2xl" />
+                <img src={logoSrc} alt="Bellezi" className="h-44 w-auto rounded-2xl" />
               </div>
               <h2 className="text-2xl font-bold tracking-tight sm:text-3xl">
                 Pronto para modernizar seu salão?

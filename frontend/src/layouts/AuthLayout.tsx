@@ -1,6 +1,7 @@
 import { Outlet, Navigate } from "react-router-dom"
 import { Check } from "lucide-react"
 import { useAuthStore } from "@/store/authStore"
+import { useThemeStore } from "@/store/themeStore"
 
 const FEATURES = [
   "Agenda integrada com status em tempo real",
@@ -10,6 +11,9 @@ const FEATURES = [
 
 export default function AuthLayout() {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated)
+  const { theme } = useThemeStore()
+  const logoSrc = theme === "dark" ? "/logo-tema-claro.png" : "/logo-tema-escuro.png"
+
   if (isAuthenticated) return <Navigate to="/dashboard" replace />
 
   return (
@@ -19,13 +23,9 @@ export default function AuthLayout() {
         <div>
           {/* Logo */}
           <div className="flex items-center gap-3">
-            <div className="flex items-center justify-center w-10 h-10 rounded-xl bg-primary shrink-0">
-              <span className="font-bold text-white text-lg leading-none select-none">
-                S
-              </span>
-            </div>
+            <img src="/icon.png" alt="Bellezi" className="w-10 h-10 rounded-xl object-cover shrink-0" />
             <span className="font-bold text-xl text-sidebar-accent-foreground tracking-tight">
-              Salão App
+              Bellezi
             </span>
           </div>
 
@@ -53,7 +53,7 @@ export default function AuthLayout() {
         </div>
 
         <p className="text-xs text-sidebar-foreground/40">
-          © {new Date().getFullYear()} Salão App. Todos os direitos reservados.
+          © {new Date().getFullYear()} Bellezi. Todos os direitos reservados.
         </p>
       </div>
 
@@ -61,13 +61,9 @@ export default function AuthLayout() {
       <div className="flex-1 flex flex-col items-center justify-center p-6 sm:p-10 bg-background min-h-screen">
         {/* Mobile logo */}
         <div className="flex items-center gap-2.5 mb-8 lg:hidden">
-          <div className="flex items-center justify-center w-9 h-9 rounded-xl bg-primary shrink-0">
-            <span className="font-bold text-white text-base leading-none select-none">
-              S
-            </span>
-          </div>
+          <img src="/icon.png" alt="Bellezi" className="w-9 h-9 rounded-xl object-cover shrink-0" />
           <span className="font-bold text-xl text-foreground tracking-tight">
-            Salão App
+            Bellezi
           </span>
         </div>
 
