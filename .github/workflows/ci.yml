@@ -1,0 +1,65 @@
+name: CI — Backend Tests
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "backend/**"
+      - ".github/workflows/ci.yml"
+  pull_request:
+    branches: [main]
+    paths:
+      - "backend/**"
+      - ".github/workflows/ci.yml"
+
+jobs:
+  test:
+    name: Pytest (Python ${{ matrix.python-version }})
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        python-version: ["3.11", "3.12"]
+
+    defaults:
+      run:
+        working-directory: backend
+
+    steps:
+      - name: Checkout do codigo
+        uses: actions/checkout@v4
+
+      - name: Configurar Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: "pip"
+          cache-dependency-path: backend/requirements.txt
+
+      - name: Instalar dependencias
+        run: pip install -r requirements.txt
+
+      - name: Executar testes
+        env:
+          DATABASE_URL: "sqlite+aiosqlite:///:memory:"
+          SECRET_KEY: "ci-secret-key-for-testing-only-32chars!!"
+          REDIS_URL: "redis://localhost:6379/0"
+          AMBIENTE: "test"
+          PRIMEIRO_ADMIN_EMAIL: "admin@test.com"
+          PRIMEIRO_ADMIN_SENHA: "TestPass123!"
+        run: |
+          pytest tests/ -v --tb=short
+
+      - name: Relatorio de cobertura
+        if: matrix.python-version == '3.12'
+        env:
+          DATABASE_URL: "sqlite+aiosqlite:///:memory:"
+          SECRET_KEY: "ci-secret-key-for-testing-only-32chars!!"
+          REDIS_URL: "redis://localhost:6379/0"
+          AMBIENTE: "test"
+          PRIMEIRO_ADMIN_EMAIL: "admin@test.com"
+          PRIMEIRO_ADMIN_SENHA: "TestPass123!"
+        run: |
+          pip install pytest-cov
+          pytest tests/ --cov=app --cov-report=term-missing --tb=short
+        continue-on-error: true
